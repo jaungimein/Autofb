@@ -87,7 +87,7 @@ async def start_handler(client, message):
     # Only allow in private chat
     if not message.chat.type == enums.ChatType.PRIVATE:
         try:
-            await safe_api_call(
+            reply = await safe_api_call(
                 message.reply_text(
                     f"🔒 Please <b>DM</b> to use <code>/start</code>.",
                     reply_markup=InlineKeyboardMarkup(
@@ -96,6 +96,9 @@ async def start_handler(client, message):
                     parse_mode=enums.ParseMode.HTML,
                 )
             )
+            if reply:
+                bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
+            bot.loop.create_task(delete_after_delay(client, message.chat.id, message.id))
         except Exception:
             pass
         return
@@ -528,7 +531,7 @@ async def search_files_handler(client, message):
     # Only allow in private chat
     if not message.chat.type == enums.ChatType.PRIVATE:
         try:
-            await safe_api_call(
+            reply = await safe_api_call(
                 message.reply_text(
                     f"🔒 Please <b>DM</b> to use <code>/search</code>.",
                     reply_markup=InlineKeyboardMarkup(
@@ -537,6 +540,10 @@ async def search_files_handler(client, message):
                     parse_mode=enums.ParseMode.HTML,
                 )
             )
+            if reply:
+                bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
+            bot.loop.create_task(delete_after_delay(client, message.chat.id, message.id))
+
         except Exception:
             pass
         return
@@ -782,6 +789,40 @@ async def delete_service_messages(client, message):
         await message.delete()
     except Exception as e:
         logger.error(f"Failed to delete service message: {e}")
+
+@bot.on_message(filters.command("chatop") & filters.private & filters.user(OWNER_ID))
+async def chatop_handler(client, message: Message):
+    """
+    Usage:
+      /chatop send <chat_id> <message>
+      /chatop del <chat_id> <message_id>
+    """
+    args = message.text.split(maxsplit=3)
+    if len(args) < 4 and not (len(args) == 4 and args[1] == "send"):
+        await message.reply_text("Usage:\n/chatop send <chat_id> <message>\n/chatop del <chat_id> <message_id>")
+        return
+    op = args[1].lower()
+    chat_id = args[2]
+    if op == "send":
+        if len(args) < 4:
+            await message.reply_text("Usage: /chatop send <chat_id> <message>")
+            return
+        try:
+            sent = await client.send_message(int(chat_id), args[3])
+            await message.reply_text(f"✅ Sent to {chat_id} (message_id: {sent.id})")
+        except Exception as e:
+            await message.reply_text(f"❌ Failed: {e}")
+    elif op == "del":
+        if len(args) != 4:
+            await message.reply_text("Usage: /chatop del <chat_id> <message_id>")
+            return
+        try:
+            await client.delete_messages(int(chat_id), int(args[3]))
+            await message.reply_text(f"✅ Deleted message {args[3]} in chat {chat_id}")
+        except Exception as e:
+            await message.reply_text(f"❌ Failed: {e}")
+    else:
+        await message.reply_text("Invalid operation. Use 'send' or 'del'.")
 
 # =========================
 # Main Entrypoint

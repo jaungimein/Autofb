@@ -7,5 +7,5 @@ TgCrypto
 requests
 imdbpy
 aiohttp
-PTN
+parse-torrent-title
 

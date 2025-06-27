@@ -636,19 +636,13 @@ async def send_search_results(client, message_or_callback, query, page, as_callb
                 bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
         return
 
-    # Map channel_id to channel_name for display
-    channel_map = {c["channel_id"]: c["channel_name"] for c in allowed_channels_col.find({}, {"_id": 0, "channel_id": 1, "channel_name": 1})}
 
     text = f"Search results for <b>{query}</b> (Page {page+1}):"
     buttons = []
     for f in files:
-        channel_name = channel_map.get(f["channel_id"], str(f["channel_id"]))
         file_link = encode_file_link(f["channel_id"], f["message_id"])
         size_str = human_readable_size(f.get('file_size', 0))
-        score_str = ""
-        if "score" in f:
-            score_str = f" [score: {f['score']:.2f}]"
-        btn_text = f"{f.get('file_name')}"
+        btn_text = f"[{size_str}] {f.get('file_name')}"
         buttons.append([
             InlineKeyboardButton(btn_text, url=f"https://t.me/{BOT_USERNAME}?start=file_{file_link}")
         ])
@@ -741,7 +735,7 @@ async def browse_channel_callback(client, callback_query: CallbackQuery):
     for f in files:
         file_link = encode_file_link(f["channel_id"], f["message_id"])
         size_str = human_readable_size(f.get('file_size', 0))
-        btn_text = f"{f.get('file_name')}"
+        btn_text = f"[{size_str}] {f.get('file_name')}"
         buttons.append([
             InlineKeyboardButton(btn_text, url=f"https://t.me/{BOT_USERNAME}?start=file_{file_link}")
         ])

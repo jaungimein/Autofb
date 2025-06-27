@@ -4,6 +4,7 @@ import asyncio
 import base64
 import uuid
 import time
+import PTN
 import requests
 from functools import wraps
 from datetime import datetime, timezone, timedelta
@@ -339,38 +340,6 @@ async def extract_tmdb_link(tmdb_url):
         tmdb_type = 'collection'
         tmdb_id = int(re.search(collection_pattern, tmdb_url).group(1)) 
     return tmdb_type, tmdb_id
-
-async def extract_movie_info(caption):
-    try:
-        # Extract season and episode (e.g., S01, S02, E01, E02)
-        season_match = re.search(r'\bS(\d{1,2})\b', caption, re.IGNORECASE)
-        episode_match = re.search(r'\bE(\d{1,2})\b', caption, re.IGNORECASE)
-
-        season = f"{int(season_match.group(1)):02d}" if season_match else None
-        episode = f"{int(episode_match.group(1)):02d}" if episode_match else None
-
-        current_year = datetime.now().year + 2  # Allow a couple of years ahead for upcoming movies
-        # Exclude 4-digit numbers followed by 'p' (like 1080p, 2160p, 720p)
-        years = [
-            y for y in re.findall(r'(\d{4})', caption)
-            if 1900 <= int(y) <= current_year and not re.search(rf'{y}p', caption, re.IGNORECASE)
-        ]
-        release_year = years[-1] if years else None
-
-        # Get everything before the last year
-        if release_year:
-            movie_name = caption.rsplit(release_year, 1)[0]
-            movie_name = movie_name.replace('.', ' ').replace('(', '').replace(')', '').strip()
-            movie_name = re.split(r'\s*A\s*K\s*A\s*', movie_name, flags=re.IGNORECASE)[0].strip()
-        else:
-            movie_name = caption
-
-        # Return all info separately
-        return movie_name, release_year, season, episode
-    except Exception as e:
-        logger.error(f"Extract Movie info Error : {e}")
-    return None, None, None, None
-
         
 # =========================
 # Queue System for File Processing
@@ -407,11 +376,17 @@ async def file_queue_worker(bot):
                 upsert_file_info(file_info)
                 try:
                     if str(file_info["channel_id"]) in TMDB_CHANNEL_ID:
-                        title, release_year, season, episode = await extract_movie_info(file_info["file_name"])
+                        title = remove_redandent(file_info["file_name"])
+                        parsed_data = PTN.parse(title)
+                        title = parsed_data.get("title").replace("_", " ").replace("-", " ").replace(":", " ")
+                        title = ' '.join(title.split())
+                        year = parsed_data.get("year")
+                        season = parsed_data.get("season")
+                        episode = parsed_data.get("episode")
                         if season:
-                            result = await get_tv_by_name(title, release_year)
+                            result = await get_tv_by_name(title, year)
                         else:
-                            result = await get_movie_by_name(title, release_year)
+                            result = await get_movie_by_name(title, year)
 
                         tmdb_id, tmdb_type = result['id'], result['media_type'] 
                         results = await get_by_id(tmdb_type, tmdb_id, season, episode)
@@ -515,3 +490,35 @@ async def periodic_expiry_cleanup(interval_seconds=3600 * 4):
         await asyncio.sleep(interval_seconds)
 
 
+def remove_redandent(filename):
+    """
+    Remove common username patterns from a filename while preserving the content title.
+
+    Args:
+        filename (str): The input filename
+
+    Returns:
+        str: Filename with usernames removed
+    """
+    filename = filename.replace("\n", "\\n")
+
+    patterns = [
+        r"^@[\w\.-]+?(?=_)",
+        r"_@[A-Za-z]+_|@[A-Za-z]+_|[\[\]\s@]*@[^.\s\[\]]+[\]\[\s@]*",  
+        r"^[\w\.-]+?(?=_Uploads_)",  
+        r"^(?:by|from)[\s_-]+[\w\.-]+?(?=_)",  
+        r"^\[[\w\.-]+?\][\s_-]*",  
+        r"^\([\w\.-]+?\)[\s_-]*",  
+    ]
+
+    result = filename
+    for pattern in patterns:
+        match = re.search(pattern, result)
+        if match:
+            result = re.sub(pattern, " ", result)
+            break  
+
+    
+    result = re.sub(r"^[_\s-]+|[_\s-]+$", " ", result)
+
+    return result

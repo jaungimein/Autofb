@@ -396,30 +396,41 @@ async def file_queue_worker(bot):
 
                         
                         if poster_url:
-                            # Check if this tmdb_id, tmdb_type, season, episode already exists in tmdb_col
-                            query = {"tmdb_id": tmdb_id, "tmdb_type": tmdb_type}
-                            if season is not None:
-                                query["season_info"] = {"$elemMatch": {"season": int(season)}}
-                                if episode is not None:
-                                    query["season_info"]["$elemMatch"]["episode"] = int(episode)
-                            elif episode is not None:
-                                query["season_info"] = {"$elemMatch": {"episode": int(episode)}}
+                            skip_for_season = False
+                            # If this is an episode and season is present, check if season without episode exists
+                            if season is not None and episode is not None:
+                                season_only_exists = tmdb_col.find_one({
+                                    "tmdb_id": tmdb_id,
+                                    "tmdb_type": tmdb_type,
+                                    "season_info": {"$elemMatch": {"season": int(season), "episode": {"$exists": False}}}
+                                })
+                                if season_only_exists:
+                                    skip_for_season = True               
+                            if not skip_for_season:
+                                # existing code for query and send_photo
+                                query = {"tmdb_id": tmdb_id, "tmdb_type": tmdb_type}
+                                if season is not None:
+                                    query["season_info"] = {"$elemMatch": {"season": int(season)}}
+                                    if episode is not None:
+                                        query["season_info"]["$elemMatch"]["episode"] = int(episode)
+                                elif episode is not None:
+                                    query["season_info"] = {"$elemMatch": {"episode": int(episode)}}
+                                exists = tmdb_col.find_one(query)
 
-                            exists = tmdb_col.find_one(query)
-                            if not exists:
-                                keyboard = InlineKeyboardMarkup(
-                                    [[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
-                                await asyncio.sleep(3)  # Avoid hitting API limits
-                                await safe_api_call(
-                                    bot.send_photo(
-                                        UPDATE_CHANNEL_ID,
-                                        photo=poster_url,
-                                        caption=info,
-                                        parse_mode=enums.ParseMode.HTML,
-                                        reply_markup=keyboard
+                                if not exists:
+                                    keyboard = InlineKeyboardMarkup(
+                                        [[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
+                                    await asyncio.sleep(3)  # Avoid hitting API limits
+                                    await safe_api_call(
+                                        bot.send_photo(
+                                            UPDATE_CHANNEL_ID,
+                                            photo=poster_url,
+                                            caption=info,
+                                            parse_mode=enums.ParseMode.HTML,
+                                            reply_markup=keyboard
+                                        )
                                     )
-                                )
-                            upsert_tmdb_info(tmdb_id, tmdb_type, season, episode)
+                                upsert_tmdb_info(tmdb_id, tmdb_type, season, episode)
 
                 except Exception as e:
                     logger.error(f"Error processing TMDB info:{e}")
@@ -441,7 +452,7 @@ async def file_queue_worker(bot):
                     try:
                         await safe_api_call(
                             last_reply_func(
-                                f"✅ Done processing {processing_count} file(s) in the queue."
+                                f"✅ Done processing file(s) in the queue."
                             )
                         )
                     except Exception:

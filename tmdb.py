@@ -101,8 +101,8 @@ def format_tmdb_info(tmdb_type, movie_id, data, season, episode):
 
         message = (
             f"<b>🎬Name:</b> {title}\n"
-            f"<b>📺Season:</b> S{season}\n" if season else ""
-            f"<b>📺Episode:</b> E{episode}\n" if episode else ""
+            + (f"<b>📺Season:</b> S{season}\n" if season else "")
+            + (f"<b>📺Episode:</b> E{episode}\n" if episode else "")
         )
         message += f"<b>⭐Rating:</b> {vote_average_str}/10\n" if vote_average_str is not None else ""
         message += f"<b>🅰️Language:</b> {language}\n" if language else ""

@@ -612,30 +612,59 @@ async def search_files_handler(client, message):
     bot.loop.create_task(delete_after_delay(client, message.chat.id, message.id))
 
 async def send_search_results(client, message_or_callback, query, page, as_callback=False, channel_id=None):
-    # Try cache first
     skip = page * SEARCH_PAGE_SIZE
     files, total_files = get_cached_search(query, page, channel_id)
     if files is None:
-        search_filter = {}
+        search_stage = {
+            "$search": {
+                "index": "default",  # Change if your index is named differently
+                "text": {
+                    "query": query,
+                    "path": "file_name",
+                    "fuzzy": {
+                        "maxEdits": 2,      # Allow up to 2 typos
+                        "prefixLength": 2,  # Require first 2 chars to match
+                        "maxExpansions": 50
+                    }
+                }
+            }
+        }
+        match_stage = {}
         if channel_id is not None:
-            search_filter["channel_id"] = channel_id
-        channels = list(allowed_channels_col.find({}, {"_id": 0, "channel_id": 1}))
-        allowed_ids = [c["channel_id"] for c in channels]
-        if channel_id is None:
-            search_filter["channel_id"] = {"$in": allowed_ids}
-        if files_col.index_information().get("file_name_text"):
-            search_filter["$text"] = {"$search": query}
-            projection = {"_id": 0, "file_name": 1, "file_size": 1, "file_format": 1, "message_id": 1, "date": 1, "channel_id": 1, "score": {"$meta": "textScore"}}
-            cursor = files_col.find(search_filter, projection).sort([("score", {"$meta": "textScore"})]).skip(skip).limit(SEARCH_PAGE_SIZE)
-            files = list(cursor)
-            total_files = files_col.count_documents(search_filter)
+            match_stage = {"$match": {"channel_id": channel_id}}
         else:
-            regex = ".*".join(map(lambda s: re.escape(s), query.strip().split()))
-            search_filter["file_name"] = {"$regex": regex, "$options": "i"}
-            projection = {"_id": 0, "file_name": 1, "file_size": 1, "file_format": 1, "message_id": 1, "date": 1, "channel_id": 1}
-            files = list(files_col.find(search_filter, projection).sort("message_id", -1).skip(skip).limit(SEARCH_PAGE_SIZE))
-            total_files = files_col.count_documents(search_filter)
+            channels = list(allowed_channels_col.find({}, {"_id": 0, "channel_id": 1}))
+            allowed_ids = [c["channel_id"] for c in channels]
+            match_stage = {"$match": {"channel_id": {"$in": allowed_ids}}}
+
+        pipeline = [
+            search_stage,
+            match_stage,
+            {"$project": {
+                "_id": 0,
+                "file_name": 1,
+                "file_size": 1,
+                "file_format": 1,
+                "message_id": 1,
+                "date": 1,
+                "channel_id": 1,
+                "score": {"$meta": "searchScore"}
+            }},
+            {"$sort": {"score": -1}},
+            {"$skip": skip},
+            {"$limit": SEARCH_PAGE_SIZE}
+        ]
+        files = list(files_col.aggregate(pipeline))
+        # For total count, run the same pipeline but with $count
+        count_pipeline = [
+            search_stage,
+            match_stage,
+            {"$count": "total"}
+        ]
+        count_result = list(files_col.aggregate(count_pipeline))
+        total_files = count_result[0]["total"] if count_result else 0
         set_cached_search(query, page, channel_id, files, total_files)
+
     if not files:
         text = "No files found for your search."
         if as_callback:
@@ -647,7 +676,6 @@ async def send_search_results(client, message_or_callback, query, page, as_callb
             if reply:
                 bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
         return
-
 
     text = f"Search results for <b>{query}</b> (Page {page+1}):"
     buttons = []

@@ -1,18 +1,14 @@
 import re
-import os
 import asyncio
 import base64
 import uuid
 import time
 import PTN
 import requests
-from functools import wraps
 from datetime import datetime, timezone, timedelta
 from pyrogram.errors import FloodWait
 from pyrogram import enums
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from config import logger
-
 from db import (
     allowed_channels_col,
     users_col,
@@ -20,6 +16,7 @@ from db import (
     auth_users_col,
     files_col,
     tmdb_col,
+    imgbb_col
 )
 from config import *
 from tmdb import get_movie_by_name, get_tv_by_name, get_by_id
@@ -191,24 +188,14 @@ def upsert_file_info(file_info):
         upsert=True
     )
 
-def upsert_tmdb_info(tmdb_id, tmdb_type, season=None, episode=None):
+def upsert_tmdb_info(tmdb_id, tmdb_type):
     """
     Insert or update TMDB info in tmdb_col.
-    If the same tmdb_id and tmdb_type exists, update season_info array.
+    Only stores tmdb_id and tmdb_type.
     """
-    season_info = {}
-    if season is not None:
-        season_info["season"] = int(season)
-    if episode is not None:
-        season_info["episode"] = int(episode)
-    update = {
-        "$setOnInsert": {"tmdb_id": tmdb_id, "tmdb_type": tmdb_type}
-    }
-    if season_info:
-        update["$addToSet"] = {"season_info": season_info}
     tmdb_col.update_one(
         {"tmdb_id": tmdb_id, "tmdb_type": tmdb_type},
-        update,
+        {"$setOnInsert": {"tmdb_id": tmdb_id, "tmdb_type": tmdb_type}},
         upsert=True
     )
 
@@ -225,37 +212,56 @@ async def restore_tmdb_photos(bot, start_id=None):
     for doc in docs:
         tmdb_id = doc.get("tmdb_id")
         tmdb_type = doc.get("tmdb_type")
-        season_infos = doc.get("season_info", [])
-
-        # If no season_info, just call once with None values
-        if not season_infos:
-            season_episode_list = [(None, None)]
-        else:
-            season_episode_list = [(s.get("season"), s.get("episode")) for s in season_infos]
-
-        for season, episode in season_episode_list:
-            try:
-                results = await get_by_id(tmdb_type, tmdb_id, season, episode)
-                poster_url = results.get('poster_url')
-                trailer = results.get('trailer_url')
-                info = results.get('message')
-                if poster_url:
-                    keyboard = InlineKeyboardMarkup(
-                        [[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
-                    await asyncio.sleep(3) 
-                    # Avoid hitting API limits
-                    await safe_api_call(
-                        bot.send_photo(
-                            UPDATE_CHANNEL_ID,
-                            photo=poster_url,
-                            caption=info,
-                            parse_mode=enums.ParseMode.HTML,
-                            reply_markup=keyboard
-                        )
+        try:
+            results = await get_by_id(tmdb_type, tmdb_id)
+            poster_url = results.get('poster_url')
+            trailer = results.get('trailer_url')
+            info = results.get('message')
+            if poster_url:
+                keyboard = InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
+                await asyncio.sleep(3)  # Avoid hitting API limits
+                await safe_api_call(
+                    bot.send_photo(
+                        UPDATE_CHANNEL_ID,
+                        photo=poster_url,
+                        caption=info,
+                        parse_mode=enums.ParseMode.HTML,
+                        reply_markup=keyboard
                     )
-            except Exception as e:
-                logger.error(f"Error in restore_tmdb_photos for tmdb_id={tmdb_id}, season={season}, episode={episode}: {e}")
-                continue  # Continue to the next (season, episode) or doc
+                )
+        except Exception as e:
+            logger.error(f"Error in restore_tmdb_photos for tmdb_id={tmdb_id}: {e}")
+            continue  # Continue to the next doc
+
+async def restore_imgbb_photos(bot, start_id=None):
+    """
+    Restore all TMDB poster photos from the database.
+    For each tmdb entry, fetch details and send the poster to UPDATE_CHANNEL_ID.
+    """
+    query = {}
+    if start_id:
+        query['_id'] = {'$gt': start_id}
+    cursor = imgbb_col.find(query).sort('_id', 1)
+    docs = list(cursor)
+    for doc in docs:
+        pic_url = doc.get("pic_url")
+        caption = doc.get("caption")
+        try:
+            await asyncio.sleep(3) 
+            # Avoid hitting API limits
+            if pic_url:
+                await safe_api_call(
+                    bot.send_photo( 
+                        UPDATE_CHANNEL2_ID,
+                        photo=pic_url,
+                        caption=caption,
+                        parse_mode=enums.ParseMode.HTML,
+                    )
+                )
+        except Exception as e:
+            logger.error(f"Error in restore_imgbb_photos for pic_url={pic_url}: {e}")
+            continue
 
 def extract_file_info(message, channel_id=None):
     """Extract file info from a Pyrogram message."""
@@ -378,59 +384,35 @@ async def file_queue_worker(bot):
                     if file_info["channel_id"] == TMDB_CHANNEL_ID:
                         title = remove_redandent(file_info["file_name"])
                         parsed_data = PTN.parse(title)
-                        title = parsed_data.get("title").replace("_", " ").replace("-", " ").replace(":", " ")
+                        title = parsed_data.get("title", "").replace("_", " ").replace("-", " ").replace(":", " ")
                         title = ' '.join(title.split())
                         year = parsed_data.get("year")
                         season = parsed_data.get("season")
-                        episode = parsed_data.get("episode")
                         if season:
                             result = await get_tv_by_name(title, year)
                         else:
                             result = await get_movie_by_name(title, year)
-
-                        tmdb_id, tmdb_type = result['id'], result['media_type'] 
-                        results = await get_by_id(tmdb_type, tmdb_id, season, episode)
-                        poster_url = results.get('poster_url')
-                        trailer = results.get('trailer_url')
-                        info = results.get('message')
-
-                        
-                        if poster_url:
-                            skip_for_season = False
-                            # If this is an episode and season is present, check if season without episode exists
-                            if season is not None and episode is not None:
-                                season_only_exists = tmdb_col.find_one({
-                                    "tmdb_id": tmdb_id,
-                                    "tmdb_type": tmdb_type,
-                                    "season_info": {"$elemMatch": {"season": int(season), "episode": {"$exists": False}}}
-                                })
-                                if season_only_exists:
-                                    skip_for_season = True               
-                            if not skip_for_season:
-                                # existing code for query and send_photo
-                                query = {"tmdb_id": tmdb_id, "tmdb_type": tmdb_type}
-                                if season is not None:
-                                    query["season_info"] = {"$elemMatch": {"season": int(season)}}
-                                    if episode is not None:
-                                        query["season_info"]["$elemMatch"]["episode"] = int(episode)
-                                elif episode is not None:
-                                    query["season_info"] = {"$elemMatch": {"episode": int(episode)}}
-                                exists = tmdb_col.find_one(query)
-
-                                if not exists:
-                                    keyboard = InlineKeyboardMarkup(
-                                        [[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
-                                    await asyncio.sleep(3)  # Avoid hitting API limits
-                                    await safe_api_call(
-                                        bot.send_photo(
-                                            UPDATE_CHANNEL_ID,
-                                            photo=poster_url,
-                                            caption=info,
-                                            parse_mode=enums.ParseMode.HTML,
-                                            reply_markup=keyboard
-                                        )
+                        tmdb_id, tmdb_type = result['id'], result['media_type']
+                        exists = tmdb_col.find_one({"tmdb_id": tmdb_id, "tmdb_type": tmdb_type})
+                        if not exists:
+                            results = await get_by_id(tmdb_type, tmdb_id)
+                            poster_url = results.get('poster_url')
+                            trailer = results.get('trailer_url')
+                            info = results.get('message')
+                            if poster_url:
+                                keyboard = InlineKeyboardMarkup(
+                                    [[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
+                                await asyncio.sleep(3)
+                                await safe_api_call(
+                                    bot.send_photo(
+                                        UPDATE_CHANNEL_ID,
+                                        photo=poster_url,
+                                        caption=info,
+                                        parse_mode=enums.ParseMode.HTML,
+                                        reply_markup=keyboard
                                     )
-                                    upsert_tmdb_info(tmdb_id, tmdb_type, season, episode)
+                                )
+                                upsert_tmdb_info(tmdb_id, tmdb_type)
 
                 except Exception as e:
                     logger.error(f"Error processing TMDB info:{e}")

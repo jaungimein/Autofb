@@ -8,4 +8,4 @@ requests
 imdbpy
 aiohttp
 parse-torrent-title
-
+imgbbpy

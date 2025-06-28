@@ -47,8 +47,8 @@ import base64
 
 TOKEN_VALIDITY_SECONDS = 24 * 60 * 60  # 24 hours token validity
 MAX_FILES_PER_SESSION = 10             # Max files a user can access per session
-PAGE_SIZE = 5  # Number of files per page
-SEARCH_PAGE_SIZE = 5  # You can adjust this
+PAGE_SIZE = 10  # Number of files per page
+SEARCH_PAGE_SIZE = 10  # You can adjust this
 
 # Initialize Pyrogram bot client
 bot = Client(

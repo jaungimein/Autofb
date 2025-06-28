@@ -13,3 +13,31 @@ allowed_channels_col = db["allowed_channels"]
 users_col = db["users"]
 
 
+''' JSON setup for Atlas Search'''
+'''
+{
+  "mappings": {
+    "dynamic": false,
+    "fields": {
+      "file_name": {
+        "analyzer": "custom_filename",
+        "type": "string"
+      }
+    }
+  },
+  "analyzers": [
+    {
+      "name": "custom_filename",
+      "tokenFilters": [
+        {
+          "type": "lowercase"
+        }
+      ],
+      "tokenizer": {
+        "pattern": "[\\s._-]+",
+        "type": "regexSplit"
+      }
+    }
+  ]
+}
+'''

@@ -415,28 +415,15 @@ async def file_queue_worker(bot):
                                 upsert_tmdb_info(tmdb_id, tmdb_type)
 
                 except Exception as e:
-                    logger.error(f"Error processing TMDB info:{e}")
-                    if reply_func:
-                        await safe_api_call(
-                            bot.send_message(
-                                LOG_CHANNEL_ID,
-                                f'❌ Error processing TMDB info: {file_info["file_name"]}/n/n{e}',
-                                parse_mode=enums.ParseMode.HTML
-                            )
-                        )
+                    logger.error(f"Error processing TMDB info:{e} {file_info["file_name"]}")
         except Exception as e:
-            if reply_func:
-                await safe_api_call(reply_func(f"❌ Error saving file: {e}"))
+            logger.error(f"❌ Error saving file: {e}")
         finally:
             file_queue.task_done()
             if file_queue.empty():
                 if processing_count > 1 and last_reply_func:
                     try:
-                        await safe_api_call(
-                            last_reply_func(
-                                f"✅ Done processing file(s) in the queue."
-                            )
-                        )
+                        logger.info("✅ Done processing file(s) in the queue.")
                     except Exception:
                         pass
                 processing_count = 0  # Reset for next batch

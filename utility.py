@@ -375,7 +375,7 @@ async def file_queue_worker(bot):
             else:
                 upsert_file_info(file_info)
                 try:
-                    if str(file_info["channel_id"]) in TMDB_CHANNEL_ID:
+                    if file_info["channel_id"] == TMDB_CHANNEL_ID:
                         title = remove_redandent(file_info["file_name"])
                         parsed_data = PTN.parse(title)
                         title = parsed_data.get("title").replace("_", " ").replace("-", " ").replace(":", " ")

@@ -209,7 +209,7 @@ async def channel_file_handler(client, message):
     await safe_api_call(message.delete())
     invalidate_search_cache()
 
-@bot.on_message(filters.document | filters.video | filters.audio | filters.photo)
+@bot.on_message(filters.channel & (filters.document | filters.video | filters.audio | filters.photo))
 async def channel_file_handler(client, message):
     allowed_channels = await get_allowed_channels()
     if message.chat.id not in allowed_channels:

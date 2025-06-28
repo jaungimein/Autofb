@@ -46,7 +46,7 @@ GROUP_ID = int(os.getenv('GROUP_ID', 0))
 UPDATE_CHANNEL_LINK = os.getenv('UPDATE_CHANNEL_LINK', 'https://t.me/')
 SUPPORT = os.getenv('SUPPORT', 'https://t.me/')
 
-TMDB_CHANNEL_ID = os.getenv('TMDB_CHANNEL_ID', '').split(',')
+TMDB_CHANNEL_ID = int(os.getenv('TMDB_CHANNEL_ID', 0))
 LOG_CHANNEL_ID = int(os.getenv('LOG_CHANNEL_ID'))
 
 MY_DOMAIN = os.getenv('MY_DOMAIN')

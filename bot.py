@@ -24,7 +24,7 @@ from utility import (
     queue_file_for_processing, file_queue_worker,
     file_queue, extract_tmdb_link, periodic_expiry_cleanup,
     restore_tmdb_photos, get_cached_search,
-    set_cached_search
+    set_cached_search, remove_redandent
 )
 from db import (db, users_col, 
                 tokens_col, 
@@ -62,6 +62,7 @@ bot = Client(
 
 # Track how many files each user has accessed in the current session
 user_file_count = defaultdict(int)
+copy_lock = asyncio.Lock()
 
 if "file_name_text" not in [idx["name"] for idx in files_col.list_indexes()]:
     files_col.create_index([("file_name", "text")])
@@ -196,6 +197,17 @@ async def start_handler(client, message):
             bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
     except Exception as e:
         await safe_api_call(message.reply_text(f"⚠️ An unexpected error occurred: {e}"))
+
+@bot.on_message(filters.private & filters.user(OWNER_ID) & (filters.document | filters.video | filters.audio | filters.photo))
+async def channel_file_handler(client, message):
+    media = message.video or message.document or message.audio
+    caption = remove_redandent(message.caption if message.caption else media.file_name)
+    async with copy_lock:
+        cpy_msg = await safe_api_call(message.copy(TMDB_CHANNEL_ID, caption=f"<code>{caption}</code>", parse_mode=enums.ParseMode.HTML))
+    await queue_file_for_processing(cpy_msg, reply_func=message.reply_text)
+    await file_queue.join()
+    await safe_api_call(message.delete())
+    invalidate_search_cache()
 
 @bot.on_message(filters.document | filters.video | filters.audio | filters.photo)
 async def channel_file_handler(client, message):

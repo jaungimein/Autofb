@@ -430,7 +430,7 @@ async def file_queue_worker(bot):
                                             reply_markup=keyboard
                                         )
                                     )
-                                upsert_tmdb_info(tmdb_id, tmdb_type, season, episode)
+                                    upsert_tmdb_info(tmdb_id, tmdb_type, season, episode)
 
                 except Exception as e:
                     logger.error(f"Error processing TMDB info:{e}")

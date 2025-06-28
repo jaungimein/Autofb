@@ -1,7 +1,7 @@
 import re
 import aiohttp
 import imdb
-from config import TMDB_API_KEY, logger, SUPPORT
+from config import TMDB_API_KEY, logger, UPDATE_CHANNEL_LINK
 
 POSTER_BASE_URL = 'https://image.tmdb.org/t/p/original'
 
@@ -51,8 +51,7 @@ def format_tmdb_info(tmdb_type, movie_id, data):
         message += f"{plot}\n\n" if plot else ""
         message += f"<b>Stars:</b> {starring}\n\n" if starring else ""
         message += f"<b>Directors:</b> {director}\n\n" if director else ""
-        message += f"<{genre_tags}\n\n" if genre_tags else ""
-        message += f"{SUPPORT}"
+        message += f"{genre_tags}\n\n" if genre_tags else ""
 
         return message.strip()
 
@@ -72,8 +71,7 @@ def format_tmdb_info(tmdb_type, movie_id, data):
         message += f"{plot}\n\n" if plot else ""
         message += f"<b>Stars:</b> {starring}\n\n" if starring else ""
         message += f"<b>Directors:</b> {director}\n\n" if director else ""
-        message += f"<{genre_tags}\n\n" if genre_tags else ""
-        message += f"{SUPPORT}"
+        message += f"{genre_tags}\n\n" if genre_tags else ""
 
         return message.strip()
     else:

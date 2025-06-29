@@ -532,6 +532,9 @@ async def imgbb_upload_reply_url_handler(client, message):
 
         image_url = message.reply_to_message.text.strip()
         caption = message.text.split(maxsplit=1)[1] if len(message.text.split(maxsplit=1)) > 1 else ""
+        if not caption.strip():
+            await message.reply_text("❌ Please provide a caption with the command. Usage: /imgbb <caption>")
+            return
         imgbb_client = imgbbpy.AsyncClient(IMGBB_API_KEY)
         try:
             pic = await imgbb_client.upload(url=image_url, name=f"{caption}")

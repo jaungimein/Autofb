@@ -559,67 +559,32 @@ async def search_files_handler(client, message):
     If used outside private chat, instructs user to DM the bot.
     Handles errors gracefully (e.g., 400 button data invalid).
     """
-    try:
-        # Only allow in private chat
-        if not message.chat.type == enums.ChatType.PRIVATE:
-            try:
-                reply = await safe_api_call(
-                    message.reply_text(
-                        f"🔒 Please <b>DM</b> to use <code>/search</code>.",
-                        reply_markup=InlineKeyboardMarkup(
-                            [[InlineKeyboardButton("Open Bot", url=f"https://t.me/{BOT_USERNAME}")]]
-                        ),
-                        parse_mode=enums.ParseMode.HTML,
-                    )
+    # Only allow in private chat
+    if not message.chat.type == enums.ChatType.PRIVATE:
+        try:
+            reply = await safe_api_call(
+                message.reply_text(
+                    f"🔒 Please <b>DM</b> to use <code>/search</code>.",
+                    reply_markup=InlineKeyboardMarkup(
+                        [[InlineKeyboardButton("Open Bot", url=f"https://t.me/{BOT_USERNAME}")]]
+                    ),
+                    parse_mode=enums.ParseMode.HTML,
                 )
-                if reply:
-                    bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
-                bot.loop.create_task(delete_after_delay(client, message.chat.id, message.id))
-            except Exception:
-                pass
-            return
+            )
+            if reply:
+                bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
+            bot.loop.create_task(delete_after_delay(client, message.chat.id, message.id))
+        except Exception:
+            pass
+        return
 
-        args = message.text.split(maxsplit=1)
-        channels = list(allowed_channels_col.find({}, {"_id": 0, "channel_id": 1, "channel_name": 1}))
-        if len(args) < 2:
-            # No query: show channel browse menu and search-in-channel menu
-            if not channels:
-                try:
-                    reply = await safe_api_call(message.reply_text("No channels available for browsing."))
-                    if reply:
-                        bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
-                    bot.loop.create_task(delete_after_delay(client, message.chat.id, message.id))
-                except Exception as e:
-                    await safe_api_call(message.reply_text(f"Error: {e}"))
-                return
-            try:
-                buttons = [
-                    [InlineKeyboardButton(f"{c['channel_name']}", callback_data=f"browse_{c['channel_id']}_0")]
-                    for c in channels
-                ]
-                reply = await safe_api_call(
-                    message.reply_text(
-                        "<b>Browse Files</b>\n"
-                        "<b>Tip:</b> Use <code>/search Batman</code> or any keyword.\n"
-                        "<b>Select a category to browse:</b>",
-                        reply_markup=InlineKeyboardMarkup(buttons),
-                        parse_mode=enums.ParseMode.HTML
-                    )
-                )
-                if reply:
-                    bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
-                bot.loop.create_task(delete_after_delay(client, message.chat.id, message.id))
-            except Exception as e:
-                # Handle 400 button data invalid or any other error
-                await safe_api_call(message.reply_text(f"Error displaying browse menu: {e}"))
-            return
-
-        query = args[1].strip()
-        page = 0
-        # Add channel selection buttons for search
+    args = message.text.split(maxsplit=1)
+    channels = list(allowed_channels_col.find({}, {"_id": 0, "channel_id": 1, "channel_name": 1}))
+    if len(args) < 2:
+        # No query: show channel browse menu and search-in-channel menu
         if not channels:
             try:
-                reply = await safe_api_call(message.reply_text("No channels available for searching."))
+                reply = await safe_api_call(message.reply_text("No channels available for browsing."))
                 if reply:
                     bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
                 bot.loop.create_task(delete_after_delay(client, message.chat.id, message.id))
@@ -628,12 +593,14 @@ async def search_files_handler(client, message):
             return
         try:
             buttons = [
-                [InlineKeyboardButton(c["channel_name"], callback_data=f"searchchan_{c['channel_id']}_0_{quote_plus(query)}")]
+                [InlineKeyboardButton(f"{c['channel_name']}", callback_data=f"browse_{c['channel_id']}_0")]
                 for c in channels
             ]
             reply = await safe_api_call(
                 message.reply_text(
-                    f"<b>Select a category to search:</b>\n<code>{query}</code>",
+                    "<b>Browse Files</b>\n"
+                    "<b>Tip:</b> Use <code>/search Batman</code> or any keyword.\n"
+                    "<b>Select a category to browse:</b>",
                     reply_markup=InlineKeyboardMarkup(buttons),
                     parse_mode=enums.ParseMode.HTML
                 )
@@ -642,8 +609,39 @@ async def search_files_handler(client, message):
                 bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
             bot.loop.create_task(delete_after_delay(client, message.chat.id, message.id))
         except Exception as e:
-            logger.error(f"Error displaying search menu: {e}")
-            await safe_api_call(message.reply_text("Invalid search keywords."))
+            await safe_api_call(message.reply_text(f"Error displaying browse menu: {e}"))
+        return
+
+    query = args[1].strip()
+    page = 0
+    # Add channel selection buttons for search
+    if not channels:
+        try:
+            reply = await safe_api_call(message.reply_text("No channels available for searching."))
+            if reply:
+                bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
+            bot.loop.create_task(delete_after_delay(client, message.chat.id, message.id))
+        except Exception as e:
+            await safe_api_call(message.reply_text(f"Error: {e}"))
+        return
+    try:
+        buttons = [
+            [InlineKeyboardButton(c["channel_name"], callback_data=f"searchchan_{c['channel_id']}_0_{quote_plus(query)}")]
+            for c in channels
+        ]
+        reply = await safe_api_call(
+            message.reply_text(
+                f"<b>Select a category to search:</b>\n<code>{query}</code>",
+                reply_markup=InlineKeyboardMarkup(buttons),
+                parse_mode=enums.ParseMode.HTML
+            )
+        )
+        if reply:
+            bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
+        bot.loop.create_task(delete_after_delay(client, message.chat.id, message.id))
+    except Exception as e:
+        logger.error(f"Error displaying search menu: {e}")
+        await safe_api_call(message.reply_text("Invalid search keywords."))
 
 async def send_search_results(client, message_or_callback, query, page, as_callback=False, channel_id=None):
     skip = page * SEARCH_PAGE_SIZE

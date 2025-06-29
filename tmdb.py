@@ -47,7 +47,7 @@ def format_tmdb_info(tmdb_type, movie_id, data):
         director = cast_crew.get('director')
         starring = ", ".join(cast_crew.get('starring', [])) if cast_crew.get('starring') else None
 
-        message = f"<b>{title} {release_year}</b> is now available.\n\n"
+        message = f"<b>{title} ({release_year})</b> is now available.\n\n"
         message += f"{plot}\n\n" if plot else ""
         message += f"<b>Stars:</b> {starring}\n\n" if starring else ""
         message += f"<b>Directors:</b> {director}\n\n" if director else ""
@@ -67,7 +67,7 @@ def format_tmdb_info(tmdb_type, movie_id, data):
         director = ", ".join([creator['name'] for creator in data.get('created_by', [])]) if data.get('created_by') else cast_crew.get('director')
         starring = ", ".join(cast_crew.get('starring', [])) if cast_crew.get('starring') else None
 
-        message = f"<b>{title} {release_year}</b> is now available.\n\n"
+        message = f"<b>{title} ({release_year})</b> is now available.\n\n"
         message += f"{plot}\n\n" if plot else ""
         message += f"<b>Stars:</b> {starring}\n\n" if starring else ""
         message += f"<b>Directors:</b> {director}\n\n" if director else ""

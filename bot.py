@@ -640,7 +640,7 @@ async def send_search_results(client, message_or_callback, query, page, as_callb
                     "query": query,
                     "path": "file_name",
                     "fuzzy": {
-                        "maxEdits": 2,      # Allow up to 2 typos
+                        "maxEdits": 1,      # Allow up to 2 typos
                         "prefixLength": 4,  # Require first 2 chars to match
                         "maxExpansions": 50
                     }
@@ -894,6 +894,7 @@ async def main():
         BotCommand("search", "search files"),
         BotCommand("tmdb", "(admin only)"),
         BotCommand("imgbb", "(admin only)"),
+        BotCommand("del", "(admin only)")
     ])
     
     bot.loop.create_task(start_fastapi())

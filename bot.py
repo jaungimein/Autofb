@@ -641,7 +641,7 @@ async def send_search_results(client, message_or_callback, query, page, as_callb
                     "path": "file_name",
                     "fuzzy": {
                         "maxEdits": 2,      # Allow up to 2 typos
-                        "prefixLength": 2,  # Require first 2 chars to match
+                        "prefixLength": 4,  # Require first 2 chars to match
                         "maxExpansions": 50
                     }
                 }

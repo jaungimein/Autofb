@@ -644,9 +644,6 @@ async def search_files_handler(client, message):
         except Exception as e:
             logger.error(f"Error displaying search menu: {e}")
             await safe_api_call(message.reply_text("Invalid search keywords."))
-        except Exception as e:
-            logger.error(f"Unexpected error in search_files_handler: {e}")
-            await safe_api_call(message.reply_text("Invalid search keywords."))
 
 async def send_search_results(client, message_or_callback, query, page, as_callback=False, channel_id=None):
     skip = page * SEARCH_PAGE_SIZE

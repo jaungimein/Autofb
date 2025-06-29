@@ -15,7 +15,7 @@ def get_cast_and_crew(tmdb_type, movie_id):
     cast_crew_data = response.json()
 
     starring = [member['name'] for member in cast_crew_data.get('cast', [])[:5]]
-    director = next((member['name'] for member in cast_crew_data.get('crew', []) if member['job'] == 'Director'), 'N/A')
+    director = next((member['name'] for member in cast_crew_data.get('crew', []) if member['job'] == 'Director'), "")
     return {"starring": starring, "director": director}
 
 def get_imdb_details(imdb_id):

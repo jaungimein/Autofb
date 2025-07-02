@@ -821,21 +821,21 @@ async def delete_service_messages(client, message):
 async def chatop_handler(client, message: Message):
     """
     Usage:
-      /chatop send <chat_id> <message>
+      /chatop send <chat_id> (reply to a message to send)
       /chatop del <chat_id> <message_id>
     """
     args = message.text.split(maxsplit=3)
-    if len(args) < 4 and not (len(args) == 4 and args[1] == "send"):
-        await message.reply_text("Usage:\n/chatop send <chat_id> <message>\n/chatop del <chat_id> <message_id>")
+    if len(args) < 3:
+        await message.reply_text("Usage:\n/chatop send <chat_id> (reply to a message)\n/chatop del <chat_id> <message_id>")
         return
     op = args[1].lower()
     chat_id = args[2]
     if op == "send":
-        if len(args) < 4:
-            await message.reply_text("Usage: /chatop send <chat_id> <message>")
+        if not message.reply_to_message:
+            await message.reply_text("Reply to a message to send it.\nUsage: /chatop send <chat_id> (reply to a message)")
             return
         try:
-            sent = await client.send_message(int(chat_id), args[3])
+            sent = await message.reply_to_message.copy(int(chat_id))
             await message.reply_text(f"✅ Sent to {chat_id} (message_id: {sent.id})")
         except Exception as e:
             await message.reply_text(f"❌ Failed: {e}")

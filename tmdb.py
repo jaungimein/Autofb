@@ -1,7 +1,7 @@
 import re
 import aiohttp
 import imdb
-from config import TMDB_API_KEY, logger, UPDATE_CHANNEL_LINK
+from config import TMDB_API_KEY, logger
 
 POSTER_BASE_URL = 'https://image.tmdb.org/t/p/original'
 

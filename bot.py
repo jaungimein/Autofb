@@ -867,7 +867,7 @@ async def main():
     await bot.set_bot_commands([
         BotCommand("start", "check bot status"),
         BotCommand("search", "search files"),
-        BotCommand("stats", "this command is for admin only)")
+        BotCommand("stats", "this command is for admin only")
     ])
     
     bot.loop.create_task(start_fastapi())

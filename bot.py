@@ -124,8 +124,8 @@ async def start_handler(client, message):
 
         # --- File access via deep link ---
         if len(message.command) == 2 and message.command[1].startswith("file_"):
-            # Check if user is authorized
-            if not is_user_authorized(user_id):
+            # Check if user is authorized, but skip for OWNER_ID
+            if user_id != OWNER_ID and not is_user_authorized(user_id):
                 now = datetime.now(timezone.utc)
                 token_doc = tokens_col.find_one({
                     "user_id": user_id,
@@ -137,7 +137,7 @@ async def start_handler(client, message):
                     "❌ You are not authorized\n"
                     "Please use this link to get access for 24 hours:",
                     reply_markup=InlineKeyboardMarkup(
-                        [[InlineKeyboardButton("Get Access Link", url=short_link)]]
+                    [[InlineKeyboardButton("Get Access Link", url=short_link)]]
                     )
                 ))
                 bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
@@ -145,7 +145,7 @@ async def start_handler(client, message):
                 return
 
             # Limit file access per session
-            if user_file_count[user_id] >= MAX_FILES_PER_SESSION:
+            if user_id != OWNER_ID and user_file_count[user_id] >= MAX_FILES_PER_SESSION:
                 await safe_api_call(message.reply_text("❌ You have reached the maximum of 10 files per session."))
                 return
 

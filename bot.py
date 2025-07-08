@@ -562,7 +562,7 @@ async def instant_search_handler(client, message):
         return
 
     skip = 0
-    files, total_files = get_cached_search(query, 0, None)
+    files, total_files = get_cached_search(query, skip, None)
     if files is None:
         search_stage = {
             "$search": {
@@ -607,7 +607,7 @@ async def instant_search_handler(client, message):
         ]
         count_result = list(files_col.aggregate(count_pipeline))
         total_files = count_result[0]["total"] if count_result else 0
-        set_cached_search(query, 0, None, files, total_files)
+        set_cached_search(query, skip, None, files, total_files)
 
     if not files:
         reply = await safe_api_call(message.reply_text("No files found for your search."))

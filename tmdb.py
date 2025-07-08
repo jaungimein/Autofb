@@ -42,7 +42,7 @@ def format_tmdb_info(tmdb_type, movie_id, data):
         plot = imdb_info.get('plot') or data.get('overview')
         title = data.get('title')
         genre = extract_genres(data)
-        genre_tags = " ".join([f"{GENRE_EMOJI_MAP.get(clean_genre_name(g), '')} {genre_tag_with_hash(g)}" for g in genre])
+        genre_tags = " ".join([genre_tag_with_emoji(g) for g in genre])
         release_year = data.get('release_date', '')[:4] if data.get('release_date') else ""
         director = cast_crew.get('director')
         starring = ", ".join(cast_crew.get('starring', [])) if cast_crew.get('starring') else None
@@ -75,7 +75,7 @@ def format_tmdb_info(tmdb_type, movie_id, data):
         plot = imdb_info.get('plot') or data.get('overview')
         title = data.get('name')
         genre = extract_genres(data)
-        genre_tags = " ".join([f"{GENRE_EMOJI_MAP.get(clean_genre_name(g), '')} {genre_tag_with_hash(g)}" for g in genre])
+        genre_tags = " ".join([genre_tag_with_emoji(g) for g in genre])
         release_year = data.get('first_air_date', '')[:4] if data.get('first_air_date') else ""
         director = ", ".join([creator['name'] for creator in data.get('created_by', [])]) if data.get('created_by') else cast_crew.get('director')
         starring = ", ".join(cast_crew.get('starring', [])) if cast_crew.get('starring') else None
@@ -217,10 +217,10 @@ GENRE_EMOJI_MAP = {
 def clean_genre_name(genre):
     return re.sub(r'[^A-Za-z0-9]', '', genre)
 
-def genre_tag_with_hash(genre):
+def genre_tag_with_emoji(genre):
     clean_name = clean_genre_name(genre)
     emoji = GENRE_EMOJI_MAP.get(clean_name, "")
-    return f"{emoji} #{clean_name}" if emoji else f"#{clean_name}"
+    return f"#{clean_name}{' ' + emoji if emoji else ''}"
 
 def extract_genres(data):
     genres = []

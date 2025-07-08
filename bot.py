@@ -571,8 +571,8 @@ async def instant_search_handler(client, message):
                     "query": query,
                     "path": "file_name",
                     "fuzzy": {
-                        "maxEdits": 2,
-                        "prefixLength": 2,
+                        "maxEdits": 1,
+                        "prefixLength": 3,
                         "maxExpansions": 50
                     }
                 }

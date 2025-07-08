@@ -184,8 +184,8 @@ async def start_handler(client, message):
         reply = await safe_api_call(
             message.reply_text(
             f"<b>Welcome, {user_name}!</b>\n\n"
-            f"<b>Use /search to find files.</b>\n\n"
-            f"<b>Example:</b> <code>/search Batman</code>\n\n"
+            f"<b>Just send me any movie or show name to search instantly.</b>\n\n"
+            f"<b>Example:</b> <code>Batman</code>\n\n"
             f"<b>Need help?</b> Contact: {SUPPORT}",
             reply_markup=InlineKeyboardMarkup(
                 [
@@ -658,7 +658,7 @@ async def delete_service_messages(client, message):
                     reply = await message.reply_text(
                         f"<b>Welcome, {user.first_name}!</b>\n"
                         f"<b>Find any file instantly.</b>\n"
-                        f"DM <b>@{BOT_USERNAME}</b> and use <code>/search</code> to get started.",
+                        f"DM <b>@{BOT_USERNAME}</b> and just send the movie or show name to search.",
                         parse_mode=enums.ParseMode.HTML,
                         reply_markup=InlineKeyboardMarkup(
                             [
@@ -723,8 +723,6 @@ async def main():
 
     await bot.set_bot_commands([
         BotCommand("start", "check bot status"),
-        BotCommand("search", "search files"),
-        BotCommand("stats", "this command is for admin only")
     ])
     
     bot.loop.create_task(start_fastapi())

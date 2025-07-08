@@ -628,13 +628,18 @@ async def instant_search_handler(client, message):
             InlineKeyboardButton(btn_text, url=f"https://t.me/{BOT_USERNAME}?start=file_{file_link}")
         ])
 
-    # Add page info and next page button if more pages exist
+    # Add page info and next/prev page buttons if more pages exist
     page_buttons = []
     page_text = f"\nPage <b>{current_page}</b> of <b>{total_pages}</b>"
     if total_pages > 1:
-        page_buttons.append(
-            InlineKeyboardButton("➡️ Next", callback_data=f"search:{query}:{current_page+1}")
-        )
+        if current_page > 1:
+            page_buttons.append(
+                InlineKeyboardButton("⬅️ Prev", callback_data=f"search:{query}:{current_page-1}")
+            )
+        if current_page < total_pages:
+            page_buttons.append(
+                InlineKeyboardButton("➡️ Next", callback_data=f"search:{query}:{current_page+1}")
+            )
 
     reply_markup = InlineKeyboardMarkup(buttons + ([page_buttons] if page_buttons else []))
 
@@ -647,6 +652,98 @@ async def instant_search_handler(client, message):
     )
     if reply:
         bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
+
+@bot.on_callback_query(filters.regex(r"^search:(.+):(\d+)$"))
+async def search_pagination_handler(client, callback_query: CallbackQuery):
+    query, page = callback_query.matches[0].group(1), int(callback_query.matches[0].group(2))
+    skip = (page - 1) * SEARCH_PAGE_SIZE
+
+    files, total_files = get_cached_search(query, skip, None)
+    if files is None:
+        search_stage = {
+            "$search": {
+                "index": "default",
+                "text": {
+                    "query": query,
+                    "path": "file_name",
+                    "fuzzy": {
+                        "maxEdits": 2,
+                        "prefixLength": 2,
+                        "maxExpansions": 50
+                    }
+                }
+            }
+        }
+        channels = list(allowed_channels_col.find({}, {"_id": 0, "channel_id": 1}))
+        allowed_ids = [c["channel_id"] for c in channels]
+        match_stage = {"$match": {"channel_id": {"$in": allowed_ids}}}
+
+        pipeline = [
+            search_stage,
+            match_stage,
+            {"$project": {
+                "_id": 0,
+                "file_name": 1,
+                "file_size": 1,
+                "file_format": 1,
+                "message_id": 1,
+                "date": 1,
+                "channel_id": 1,
+                "score": {"$meta": "searchScore"}
+            }},
+            {"$sort": {"score": -1}},
+            {"$skip": skip},
+            {"$limit": SEARCH_PAGE_SIZE}
+        ]
+        files = list(files_col.aggregate(pipeline))
+        count_pipeline = [
+            search_stage,
+            match_stage,
+            {"$count": "total"}
+        ]
+        count_result = list(files_col.aggregate(count_pipeline))
+        total_files = count_result[0]["total"] if count_result else 0
+        set_cached_search(query, skip, None, files, total_files)
+
+    if not files:
+        await callback_query.answer("No files found for this page.", show_alert=True)
+        return
+
+    total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE
+    text = f"Search results for <b>{query}</b>:"
+    buttons = []
+    for f in files:
+        file_link = encode_file_link(f["channel_id"], f["message_id"])
+        size_str = human_readable_size(f.get('file_size', 0))
+        btn_text = f"{size_str} | {f.get('file_name')}"
+        buttons.append([
+            InlineKeyboardButton(btn_text, url=f"https://t.me/{BOT_USERNAME}?start=file_{file_link}")
+        ])
+
+    # Pagination buttons
+    page_buttons = []
+    if total_pages > 1:
+        if page > 1:
+            page_buttons.append(
+                InlineKeyboardButton("⬅️ Prev", callback_data=f"search:{query}:{page-1}")
+            )
+        if page < total_pages:
+            page_buttons.append(
+                InlineKeyboardButton("➡️ Next", callback_data=f"search:{query}:{page+1}")
+            )
+    page_text = f"\nPage <b>{page}</b> of <b>{total_pages}</b>"
+
+    reply_markup = InlineKeyboardMarkup(buttons + ([page_buttons] if page_buttons else []))
+
+    try:
+        await callback_query.edit_message_text(
+            text + page_text,
+            reply_markup=reply_markup,
+            parse_mode=enums.ParseMode.HTML
+        )
+    except Exception:
+        pass
+    await callback_query.answer()
 
 @bot.on_message(filters.chat(GROUP_ID) & filters.service)
 async def delete_service_messages(client, message):

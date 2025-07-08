@@ -5,6 +5,8 @@ pymongo
 python-dotenv
 TgCrypto
 requests
-imdbpy
+git+https://github.com/cinemagoer/cinemagoer
 aiohttp
 parse-torrent-title
+imgbbpy
+mutagen

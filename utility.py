@@ -15,10 +15,16 @@ from db import (
     tokens_col,
     auth_users_col,
     files_col,
-    tmdb_col
+    tmdb_col,
+    imgbb_col
 )
 from config import *
 from tmdb import get_movie_by_name, get_tv_by_name, get_by_id
+from mutagen.mp3 import MP3
+from mutagen.flac import FLAC
+from mutagen.mp4 import MP4
+from mutagen.id3 import ID3, APIC
+from mutagen import File as MutagenFile
 
 # =========================
 # Constants & Globals
@@ -233,6 +239,35 @@ async def restore_tmdb_photos(bot, start_id=None):
             logger.error(f"Error in restore_tmdb_photos for tmdb_id={tmdb_id}: {e}")
             continue  # Continue to the next doc
 
+async def restore_imgbb_photos(bot, start_id=None):
+    """
+    Restore all TMDB poster photos from the database.
+    For each tmdb entry, fetch details and send the poster to UPDATE_CHANNEL_ID.
+    """
+    query = {}
+    if start_id:
+        query['_id'] = {'$gt': start_id}
+    cursor = imgbb_col.find(query).sort('_id', 1)
+    docs = list(cursor)
+    for doc in docs:
+        pic_url = doc.get("pic_url")
+        caption = doc.get("caption")
+        try:
+            await asyncio.sleep(3) 
+            # Avoid hitting API limits
+            if pic_url:
+                await safe_api_call(
+                    bot.send_photo( 
+                        UPDATE_CHANNEL2_ID,
+                        photo=pic_url,
+                        caption=caption,
+                        parse_mode=enums.ParseMode.HTML,
+                    )
+                )
+        except Exception as e:
+            logger.error(f"Error in restore_imgbb_photos for pic_url={pic_url}: {e}")
+            continue
+
 def extract_file_info(message, channel_id=None):
     """Extract file info from a Pyrogram message."""
     caption_name = message.caption.strip() if message.caption else None
@@ -350,6 +385,13 @@ async def file_queue_worker(bot):
                     )
             else:
                 upsert_file_info(file_info)
+                if message.audio:
+                    audio_path = await bot.download_media(message)
+                    thumb_path = await get_audio_thumbnail(audio_path)
+                    file_info = f"🎧 <code>{message.audio.title}</code>\n🧑‍🎤 <b>{message.audio.artist}</b>"
+                    await bot.send_photo(UPDATE_CHANNEL3_ID, photo=thumb_path, caption=file_info)
+                    os.remove(audio_path)
+                    os.remove(thumb_path)
                 try:
                     if str(file_info["channel_id"]) in TMDB_CHANNEL_ID:
                         title = remove_redandent(file_info["file_name"])
@@ -472,3 +514,28 @@ def remove_redandent(filename):
     result = re.sub(r"^[_\s-]+|[_\s-]+$", " ", result)
 
     return result
+
+async def get_audio_thumbnail(audio_path, output_dir="downloads"):
+    audio = MutagenFile(audio_path)
+    thumbnail_path = os.path.join(output_dir, "audio_thumbnail.jpg")
+
+    if isinstance(audio, MP3):
+        if audio.tags and isinstance(audio.tags, ID3):
+            for tag in audio.tags.values():
+                if isinstance(tag, APIC):
+                    with open(thumbnail_path, "wb") as img_file:
+                        img_file.write(tag.data)
+                    return thumbnail_path
+    elif isinstance(audio, FLAC):
+        if audio.pictures:
+            with open(thumbnail_path, "wb") as img_file:
+                img_file.write(audio.pictures[0].data)
+            return thumbnail_path
+    elif isinstance(audio, MP4):
+        if audio.tags and 'covr' in audio.tags:
+            cover = audio.tags['covr'][0]
+            with open(thumbnail_path, "wb") as img_file:
+                img_file.write(cover)
+            return thumbnail_path
+    
+    return None

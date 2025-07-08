@@ -1,6 +1,6 @@
 import re
 import aiohttp
-import imdb
+from imdb import Cinemagoer
 from config import TMDB_API_KEY, logger
 
 POSTER_BASE_URL = 'https://image.tmdb.org/t/p/original'
@@ -19,7 +19,7 @@ def get_cast_and_crew(tmdb_type, movie_id):
     return {"starring": starring, "director": director}
 
 def get_imdb_details(imdb_id):
-    ia = imdb.IMDb()
+    ia = Cinemagoer()
     try:
         movie = ia.get_movie(imdb_id.replace('tt', ''))
         if not movie:
@@ -42,16 +42,29 @@ def format_tmdb_info(tmdb_type, movie_id, data):
         plot = imdb_info.get('plot') or data.get('overview')
         title = data.get('title')
         genre = extract_genres(data)
-        genre_tags = " ".join([genre_tag_with_hash(g) for g in genre])
+        genre_tags = " ".join([f"{GENRE_EMOJI_MAP.get(clean_genre_name(g), '')} {genre_tag_with_hash(g)}" for g in genre])
         release_year = data.get('release_date', '')[:4] if data.get('release_date') else ""
         director = cast_crew.get('director')
         starring = ", ".join(cast_crew.get('starring', [])) if cast_crew.get('starring') else None
+        vote_average = data.get('vote_average')
+        spoken_languages = ", ".join([lang.get('name', '') for lang in data.get('spoken_languages', [])])
+        runtime = format_duration(data.get('runtime')) if data.get('runtime') else ""
+        rating = imdb_info.get('rating')
+        if rating is not None:
+            rating_str = f"{rating:.1f}"
+        elif vote_average is not None:
+            rating_str = f"{vote_average:.1f}"
+        else:
+            rating_str = None
 
-        message = f"<b>{title} ({release_year})</b> is now available.\n\n"
-        message += f"{plot}\n\n" if plot else ""
-        message += f"<b>Stars:</b> {starring}\n\n" if starring else ""
-        message += f"<b>Directors:</b> {director}\n\n" if director else ""
-        message += f"{genre_tags}\n\n" if genre_tags else ""
+        message = f"🎬 <code>{title} ({release_year})</code>\n\n"
+        message += f"📝 <b>Overview:</b> {plot}\n\n" if plot else ""
+        message += f"⭐ <b>Rating:</b> {rating_str}\n" if rating_str else ""
+        message += f"🌐 <b>Languages:</b> {spoken_languages}\n" if spoken_languages else ""
+        message += f"⏱️ <b>Duration:</b> {runtime}\n" if runtime else ""
+        message += f"🎭 <b>Stars:</b> {starring}\n" if starring else ""
+        message += f"🎬 <b>Director:</b> {director}\n" if director else ""
+        message += f"🎭 <b>Genre:</b> {genre_tags}\n\n" if genre_tags else ""
 
         return message.strip()
 
@@ -62,16 +75,28 @@ def format_tmdb_info(tmdb_type, movie_id, data):
         plot = imdb_info.get('plot') or data.get('overview')
         title = data.get('name')
         genre = extract_genres(data)
-        genre_tags = " ".join([genre_tag_with_hash(g) for g in genre])
+        genre_tags = " ".join([f"{GENRE_EMOJI_MAP.get(clean_genre_name(g), '')} {genre_tag_with_hash(g)}" for g in genre])
         release_year = data.get('first_air_date', '')[:4] if data.get('first_air_date') else ""
         director = ", ".join([creator['name'] for creator in data.get('created_by', [])]) if data.get('created_by') else cast_crew.get('director')
         starring = ", ".join(cast_crew.get('starring', [])) if cast_crew.get('starring') else None
+        vote_average = data.get('vote_average')
+        spoken_languages = ", ".join([lang.get('name', '') for lang in data.get('spoken_languages', [])])
+        rating = imdb_info.get('rating')
+        if rating is not None:
+            rating_str = f"{rating:.1f}"
+        elif vote_average is not None:
+            rating_str = f"{vote_average:.1f}"
+        else:
+            rating_str = None
 
-        message = f"<b>{title} ({release_year})</b> is now available.\n\n"
-        message += f"{plot}\n\n" if plot else ""
-        message += f"<b>Stars:</b> {starring}\n\n" if starring else ""
-        message += f"<b>Directors:</b> {director}\n\n" if director else ""
-        message += f"{genre_tags}\n\n" if genre_tags else ""
+
+        message = f"📺 <code>{title} ({release_year})</code>\n\n"
+        message += f"📝 <b>Overview:</b> {plot}\n\n" if plot else ""
+        message += f"⭐ <b>Rating:</b> {rating_str}\n" if rating_str else ""
+        message += f"🌐 <b>Languages:</b> {spoken_languages}\n" if spoken_languages else ""
+        message += f"🎭 <b>Stars:</b> {starring}\n" if starring else ""
+        message += f"🎬 <b>Director:</b> {director}\n" if director else ""
+        message += f"🎭 <b>Genre:</b> {genre_tags}\n\n" if genre_tags else ""
 
         return message.strip()
     else:
@@ -194,7 +219,8 @@ def clean_genre_name(genre):
 
 def genre_tag_with_hash(genre):
     clean_name = clean_genre_name(genre)
-    return f"#{clean_name}"
+    emoji = GENRE_EMOJI_MAP.get(clean_name, "")
+    return f"{emoji} #{clean_name}" if emoji else f"#{clean_name}"
 
 def extract_genres(data):
     genres = []

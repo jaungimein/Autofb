@@ -41,6 +41,7 @@ from tmdb import get_by_id
 import logging
 from pyrogram.types import CallbackQuery
 import base64
+from urllib.parse import quote_plus
 
 # =========================
 # Constants & Globals
@@ -72,6 +73,54 @@ def encode_file_link(channel_id, message_id):
     # Returns a base64 string for deep linking
     raw = f"{channel_id}_{message_id}".encode()
     return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+
+def sanitize_query(query):
+    # Remove excessive whitespace and limit length
+    return re.sub(r"\s+", " ", query.strip())[:100]
+
+def build_search_pipeline(query, allowed_ids, skip, limit):
+    search_stage = {
+        "$search": {
+            "index": "default",
+            "text": {
+                "query": query,
+                "path": "file_name",
+                "fuzzy": {
+                    "maxEdits": 1,
+                    "prefixLength": 3,
+                    "maxExpansions": 50
+                }
+            }
+        }
+    }
+    match_stage = {"$match": {"channel_id": {"$in": allowed_ids}}}
+    project_stage = {
+        "$project": {
+            "_id": 0,
+            "file_name": 1,
+            "file_size": 1,
+            "file_format": 1,
+            "message_id": 1,
+            "date": 1,
+            "channel_id": 1,
+            "score": {"$meta": "searchScore"}
+        }
+    }
+    sort_stage = {"$sort": {"score": -1}}
+    facet_stage = {
+        "$facet": {
+            "results": [
+                project_stage,
+                sort_stage,
+                {"$skip": skip},
+                {"$limit": limit}
+            ],
+            "totalCount": [
+                {"$count": "total"}
+            ]
+        }
+    }
+    return [search_stage, match_stage, facet_stage]
 
 # =========================
 # Bot Command Handlers
@@ -550,64 +599,27 @@ async def imgbb_upload_reply_url_handler(client, message):
         await message.reply_text(f"⚠️ An unexpected error occurred: {e}")
 
 
-@bot.on_message(filters.private & filters.text & ~filters.command(["start", "stats", "add", "rm", "broadcast", "log", "tmdb", "imgbb", "restore", "index", "del", "restart", "chatop"]))
+@bot.on_message(filters.private & filters.text & ~filters.command([
+    "start", "stats", "add", "rm", "broadcast", "log", "tmdb", "imgbb", "restore", "index", "del", "restart", "chatop"
+]))
 async def instant_search_handler(client, message):
-    """
-    Instantly search files by text message in private chat.
-    The message text is used as the query.
-    """
-    query = message.text.strip()
+    query = sanitize_query(message.text)
     if not query:
         return
 
     page = 1
     skip = (page - 1) * SEARCH_PAGE_SIZE
+
     files, total_files = get_cached_search(query, page, None)
     if files is None:
-        search_stage = {
-            "$search": {
-                "index": "default",
-                "text": {
-                    "query": query,
-                    "path": "file_name",
-                    "fuzzy": {
-                        "maxEdits": 1,
-                        "prefixLength": 3,
-                        "maxExpansions": 50
-                    }
-                }
-            }
-        }
         channels = list(allowed_channels_col.find({}, {"_id": 0, "channel_id": 1}))
         allowed_ids = [c["channel_id"] for c in channels]
-        match_stage = {"$match": {"channel_id": {"$in": allowed_ids}}}
-
-        pipeline = [
-            search_stage,
-            match_stage,
-            {"$project": {
-                "_id": 0,
-                "file_name": 1,
-                "file_size": 1,
-                "file_format": 1,
-                "message_id": 1,
-                "date": 1,
-                "channel_id": 1,
-                "score": {"$meta": "searchScore"}
-            }},
-            {"$sort": {"score": -1}},
-            {"$skip": skip},
-            {"$limit": SEARCH_PAGE_SIZE}
-        ]
-        files = list(files_col.aggregate(pipeline))
-        count_pipeline = [
-            search_stage,
-            match_stage,
-            {"$count": "total"}
-        ]
-        count_result = list(files_col.aggregate(count_pipeline))
-        total_files = count_result[0]["total"] if count_result else 0
+        pipeline = build_search_pipeline(query, allowed_ids, skip, SEARCH_PAGE_SIZE)
+        result = list(files_col.aggregate(pipeline))
+        files = result[0]["results"] if result and result[0]["results"] else []
+        total_files = result[0]["totalCount"][0]["total"] if result and result[0]["totalCount"] else 0
         set_cached_search(query, page, None, files, total_files)
+
     if not files:
         reply = await safe_api_call(message.reply_text("No files found for your search."))
         if reply:
@@ -627,17 +639,17 @@ async def instant_search_handler(client, message):
             InlineKeyboardButton(btn_text, url=f"https://t.me/{BOT_USERNAME}?start=file_{file_link}")
         ])
 
-    # Add page info and next/prev page buttons if more pages exist
+    # Pagination
     page_buttons = []
     page_text = f"\nPage <b>{current_page}</b> of <b>{total_pages}</b>"
     if total_pages > 1:
         if current_page > 1:
             page_buttons.append(
-                InlineKeyboardButton("⬅️ Prev", callback_data=f"search:{query}:{current_page-1}")
+                InlineKeyboardButton("⬅️ Prev", callback_data=f"search:{quote_plus(query)}:{current_page-1}")
             )
         if current_page < total_pages:
             page_buttons.append(
-                InlineKeyboardButton("➡️ Next", callback_data=f"search:{query}:{current_page+1}")
+                InlineKeyboardButton("➡️ Next", callback_data=f"search:{quote_plus(query)}:{current_page+1}")
             )
 
     reply_markup = InlineKeyboardMarkup(buttons + ([page_buttons] if page_buttons else []))
@@ -654,55 +666,19 @@ async def instant_search_handler(client, message):
 
 @bot.on_callback_query(filters.regex(r"^search:(.+):(\d+)$"))
 async def search_pagination_handler(client, callback_query: CallbackQuery):
+    from urllib.parse import unquote_plus
     query, page = callback_query.matches[0].group(1), int(callback_query.matches[0].group(2))
+    query = sanitize_query(unquote_plus(query))
     skip = (page - 1) * SEARCH_PAGE_SIZE
 
-    # Use page as the cache key, not skip
     files, total_files = get_cached_search(query, page, None)
     if files is None:
-        search_stage = {
-            "$search": {
-                "index": "default",
-                "text": {
-                    "query": query,
-                    "path": "file_name",
-                    "fuzzy": {
-                        "maxEdits": 1,
-                        "prefixLength": 3,
-                        "maxExpansions": 50
-                    }
-                }
-            }
-        }
         channels = list(allowed_channels_col.find({}, {"_id": 0, "channel_id": 1}))
         allowed_ids = [c["channel_id"] for c in channels]
-        match_stage = {"$match": {"channel_id": {"$in": allowed_ids}}}
-
-        pipeline = [
-            search_stage,
-            match_stage,
-            {"$project": {
-                "_id": 0,
-                "file_name": 1,
-                "file_size": 1,
-                "file_format": 1,
-                "message_id": 1,
-                "date": 1,
-                "channel_id": 1,
-                "score": {"$meta": "searchScore"}
-            }},
-            {"$sort": {"score": -1}},
-            {"$skip": skip},
-            {"$limit": SEARCH_PAGE_SIZE}
-        ]
-        files = list(files_col.aggregate(pipeline))
-        count_pipeline = [
-            search_stage,
-            match_stage,
-            {"$count": "total"}
-        ]
-        count_result = list(files_col.aggregate(count_pipeline))
-        total_files = count_result[0]["total"] if count_result else 0
+        pipeline = build_search_pipeline(query, allowed_ids, skip, SEARCH_PAGE_SIZE)
+        result = list(files_col.aggregate(pipeline))
+        files = result[0]["results"] if result and result[0]["results"] else []
+        total_files = result[0]["totalCount"][0]["total"] if result and result[0]["totalCount"] else 0
         set_cached_search(query, page, None, files, total_files)
 
     if not files:
@@ -720,16 +696,16 @@ async def search_pagination_handler(client, callback_query: CallbackQuery):
             InlineKeyboardButton(btn_text, url=f"https://t.me/{BOT_USERNAME}?start=file_{file_link}")
         ])
 
-    # Pagination buttons
+    # Pagination
     page_buttons = []
     if total_pages > 1:
         if page > 1:
             page_buttons.append(
-                InlineKeyboardButton("⬅️ Prev", callback_data=f"search:{query}:{page-1}")
+                InlineKeyboardButton("⬅️ Prev", callback_data=f"search:{quote_plus(query)}:{page-1}")
             )
         if page < total_pages:
             page_buttons.append(
-                InlineKeyboardButton("➡️ Next", callback_data=f"search:{query}:{page+1}")
+                InlineKeyboardButton("➡️ Next", callback_data=f"search:{quote_plus(query)}:{page+1}")
             )
     page_text = f"\nPage <b>{page}</b> of <b>{total_pages}</b>"
 

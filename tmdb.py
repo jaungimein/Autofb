@@ -57,7 +57,8 @@ def format_tmdb_info(tmdb_type, movie_id, data):
         else:
             rating_str = None
 
-        message = f"🎬 <code>{title} ({release_year})</code>\n\n"
+        message = f"🎬 <b>Title:</b> <code>{title}</code>\n"
+        message += f"📅 <b>Release Year:</b> {release_year}\n\n" if release_year else "\n"
         message += f"📝 <b>Overview:</b> {plot}\n\n" if plot else ""
         message += f"⭐ <b>Rating:</b> {rating_str}\n" if rating_str else ""
         message += f"🌐 <b>Languages:</b> {spoken_languages}\n" if spoken_languages else ""
@@ -90,7 +91,8 @@ def format_tmdb_info(tmdb_type, movie_id, data):
             rating_str = None
 
 
-        message = f"📺 <code>{title} ({release_year})</code>\n\n"
+        message = f"📺 <b>Title:</b> <code>{title}</code>\n"
+        message += f"📅 <b>Release Year:</b> {release_year}\n\n" if release_year else "\n"
         message += f"📝 <b>Overview:</b> {plot}\n\n" if plot else ""
         message += f"⭐ <b>Rating:</b> {rating_str}\n" if rating_str else ""
         message += f"🌐 <b>Languages:</b> {spoken_languages}\n" if spoken_languages else ""

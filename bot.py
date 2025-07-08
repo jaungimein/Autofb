@@ -40,7 +40,6 @@ from fast_api import api
 from tmdb import get_by_id
 import logging
 from pyrogram.types import CallbackQuery
-from urllib.parse import quote_plus, unquote_plus
 import base64
 
 # =========================
@@ -561,8 +560,9 @@ async def instant_search_handler(client, message):
     if not query:
         return
 
-    skip = 0
-    files, total_files = get_cached_search(query, skip, None)
+    page = 1
+    skip = (page - 1) * SEARCH_PAGE_SIZE
+    files, total_files = get_cached_search(query, page, None)
     if files is None:
         search_stage = {
             "$search": {
@@ -607,8 +607,7 @@ async def instant_search_handler(client, message):
         ]
         count_result = list(files_col.aggregate(count_pipeline))
         total_files = count_result[0]["total"] if count_result else 0
-        set_cached_search(query, skip, None, files, total_files)
-
+        set_cached_search(query, page, None, files, total_files)
     if not files:
         reply = await safe_api_call(message.reply_text("No files found for your search."))
         if reply:
@@ -658,7 +657,8 @@ async def search_pagination_handler(client, callback_query: CallbackQuery):
     query, page = callback_query.matches[0].group(1), int(callback_query.matches[0].group(2))
     skip = (page - 1) * SEARCH_PAGE_SIZE
 
-    files, total_files = get_cached_search(query, skip, None)
+    # Use page as the cache key, not skip
+    files, total_files = get_cached_search(query, page, None)
     if files is None:
         search_stage = {
             "$search": {
@@ -703,7 +703,7 @@ async def search_pagination_handler(client, callback_query: CallbackQuery):
         ]
         count_result = list(files_col.aggregate(count_pipeline))
         total_files = count_result[0]["total"] if count_result else 0
-        set_cached_search(query, skip, None, files, total_files)
+        set_cached_search(query, page, None, files, total_files)
 
     if not files:
         await callback_query.answer("No files found for this page.", show_alert=True)

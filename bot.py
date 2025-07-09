@@ -85,11 +85,6 @@ def build_search_pipeline(query, allowed_ids, skip, limit):
             "text": {
                 "query": query,
                 "path": "file_name",
-                "fuzzy": {
-                    "maxEdits": 1,
-                    "prefixLength": 3,
-                    "maxExpansions": 10
-                }
             }
         }
     }

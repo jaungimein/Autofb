@@ -86,8 +86,8 @@ def build_search_pipeline(query, allowed_ids, skip, limit):
                 "query": query,
                 "path": "file_name",
                 "fuzzy": {
-                    "maxEdits": 2,  # Allow up to 2 edits for fuzzy matching
-                    "prefixLength": 5
+                    "maxEdits": 0,
+                    "prefixLength": 6
                 }
             }
         }
@@ -589,7 +589,7 @@ async def imgbb_upload_reply_url_handler(client, message):
                 "caption": caption,
             }
             imgbb_col.insert_one(pic_doc)
-            await bot.send_photo(UPDATE_CHANNEL2_ID, f"{pic.url}", caption=f"<code>{caption}</code>")
+            await bot.send_photo(UPDATE_CHANNEL2_ID, f"{pic.url}", caption=f"<b>{caption}</b>")
         except Exception as e:
             await message.reply_text(f"❌ Failed to upload image to imgbb: {e}")
         finally:

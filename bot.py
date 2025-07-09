@@ -86,7 +86,6 @@ def build_search_pipeline(query, allowed_ids, skip, limit):
                 "query": query,
                 "path": "file_name",
                 "fuzzy": {
-                    "maxEdits": 0,
                     "prefixLength": 6
                 }
             }
@@ -666,6 +665,7 @@ async def instant_search_handler(client, message):
     except Exception as e:
         # Do not send error details to the user or log channel
         logger.error(f"Error in instant_search_handler: {e}")
+        await message.reply_text("Invalid search query. Please try again with a different query.")
 
 @bot.on_callback_query(filters.regex(r"^search:(.+):(\d+)$"))
 async def search_pagination_handler(client, callback_query: CallbackQuery):

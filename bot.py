@@ -328,7 +328,7 @@ async def index_channel_files(client, message):
                 total_queued += 1
         invalidate_search_cache()
 
-    logger.info(f"✅ Queued {total_queued} files from channel {channel_id} for processing. Duplicates allowed: {dup}")
+    await message.reply_text(f"✅ Queued {total_queued} files from channel {channel_id} for processing. Duplicates allowed: {dup}")
 
 
 @bot.on_message(filters.private & filters.command("del") & filters.user(OWNER_ID))
@@ -532,19 +532,18 @@ async def stats_command(client, message: Message):
 
         # Compose stats message
         text = (
-            f"👤 <b>Total auth users:</b> <code>{total_auth_users}</code> / <b>Total users:</b> <code>{total_users}</code>\n"
-            f"💾 <b>Files size:</b> <code>{human_readable_size(total_storage)}</code>\n"
-            f"📊 <b>Database storage used:</b> <code>{db_storage / (1024 * 1024):.2f} MB</code>\n\n"
-            f"<b>Total files count by channel:</b>\n"
+            f"👤 <b>Total auth users: {total_auth_users} / {total_users}</b>\n"
+            f"💾 <b>Files size:</b> <b>{human_readable_size(total_storage)}</b>\n"
+            f"📊 <b>Database storage used: {db_storage / (1024 * 1024):.2f} MB</b>\n"
         )
 
         if not channel_counts:
-            text += "No files indexed yet."
+            text += " <b>No files indexed yet.</b>"
         else:
             for c in channel_counts:
                 chan_id = c['_id']
                 chan_name = channel_names.get(chan_id, 'Unknown')
-                text += f"• <b>{chan_name}</b>: <b>{c['count']}</b>\n"
+                text += f"<b>{chan_name}</b>: <b>{c['count']} files</b>\n"
 
         await message.reply_text(text, parse_mode=enums.ParseMode.HTML)
     except Exception as e:

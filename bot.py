@@ -86,9 +86,8 @@ def build_search_pipeline(query, allowed_ids, skip, limit):
                 "query": query,
                 "path": "file_name",
                 "fuzzy": {
-                    "maxEdits": 2,
-                    "prefixLength": 2,
-                    "maxExpansions": 50
+                    "maxEdits": 2,  # Allow up to 2 edits for fuzzy matching
+                    "prefixLength": 5
                 }
             }
         }
@@ -603,66 +602,70 @@ async def imgbb_upload_reply_url_handler(client, message):
     "start", "stats", "add", "rm", "broadcast", "log", "tmdb", "imgbb", "restore", "index", "del", "restart", "chatop"
 ]))
 async def instant_search_handler(client, message):
-    query = sanitize_query(message.text)
-    if not query:
-        return
+    try:
+        query = sanitize_query(message.text)
+        if not query:
+            return
 
-    page = 1
-    skip = (page - 1) * SEARCH_PAGE_SIZE
+        page = 1
+        skip = (page - 1) * SEARCH_PAGE_SIZE
 
-    files, total_files = get_cached_search(query, page, None)
-    if files is None:
-        channels = list(allowed_channels_col.find({}, {"_id": 0, "channel_id": 1}))
-        allowed_ids = [c["channel_id"] for c in channels]
-        pipeline = build_search_pipeline(query, allowed_ids, skip, SEARCH_PAGE_SIZE)
-        result = list(files_col.aggregate(pipeline))
-        files = result[0]["results"] if result and result[0]["results"] else []
-        total_files = result[0]["totalCount"][0]["total"] if result and result[0]["totalCount"] else 0
-        set_cached_search(query, page, None, files, total_files)
+        files, total_files = get_cached_search(query, page, None)
+        if files is None:
+            channels = list(allowed_channels_col.find({}, {"_id": 0, "channel_id": 1}))
+            allowed_ids = [c["channel_id"] for c in channels]
+            pipeline = build_search_pipeline(query, allowed_ids, skip, SEARCH_PAGE_SIZE)
+            result = list(files_col.aggregate(pipeline))
+            files = result[0]["results"] if result and result[0]["results"] else []
+            total_files = result[0]["totalCount"][0]["total"] if result and result[0]["totalCount"] else 0
+            set_cached_search(query, page, None, files, total_files)
 
-    if not files:
-        reply = await safe_api_call(message.reply_text("No files found for your search."))
+        if not files:
+            reply = await safe_api_call(message.reply_text("No files found for your search."))
+            if reply:
+                bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
+            return
+
+        total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE
+        current_page = 1
+
+        text = f"Search results for <b>{query}</b>:"
+        buttons = []
+        for f in files:
+            file_link = encode_file_link(f["channel_id"], f["message_id"])
+            size_str = human_readable_size(f.get('file_size', 0))
+            btn_text = f"{size_str} | {f.get('file_name')}"
+            buttons.append([
+                InlineKeyboardButton(btn_text, url=f"https://t.me/{BOT_USERNAME}?start=file_{file_link}")
+            ])
+
+        # Pagination
+        page_buttons = []
+        page_text = f"\nPage <b>{current_page}</b> of <b>{total_pages}</b>"
+        if total_pages > 1:
+            if current_page > 1:
+                page_buttons.append(
+                    InlineKeyboardButton("⬅️ Prev", callback_data=f"search:{quote_plus(query)}:{current_page-1}")
+                )
+            if current_page < total_pages:
+                page_buttons.append(
+                    InlineKeyboardButton("➡️ Next", callback_data=f"search:{quote_plus(query)}:{current_page+1}")
+                )
+
+        reply_markup = InlineKeyboardMarkup(buttons + ([page_buttons] if page_buttons else []))
+
+        reply = await safe_api_call(
+            message.reply_text(
+                text + page_text,
+                reply_markup=reply_markup,
+                parse_mode=enums.ParseMode.HTML
+            )
+        )
         if reply:
             bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
-        return
-
-    total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE
-    current_page = 1
-
-    text = f"Search results for <b>{query}</b>:"
-    buttons = []
-    for f in files:
-        file_link = encode_file_link(f["channel_id"], f["message_id"])
-        size_str = human_readable_size(f.get('file_size', 0))
-        btn_text = f"{size_str} | {f.get('file_name')}"
-        buttons.append([
-            InlineKeyboardButton(btn_text, url=f"https://t.me/{BOT_USERNAME}?start=file_{file_link}")
-        ])
-
-    # Pagination
-    page_buttons = []
-    page_text = f"\nPage <b>{current_page}</b> of <b>{total_pages}</b>"
-    if total_pages > 1:
-        if current_page > 1:
-            page_buttons.append(
-                InlineKeyboardButton("⬅️ Prev", callback_data=f"search:{quote_plus(query)}:{current_page-1}")
-            )
-        if current_page < total_pages:
-            page_buttons.append(
-                InlineKeyboardButton("➡️ Next", callback_data=f"search:{quote_plus(query)}:{current_page+1}")
-            )
-
-    reply_markup = InlineKeyboardMarkup(buttons + ([page_buttons] if page_buttons else []))
-
-    reply = await safe_api_call(
-        message.reply_text(
-            text + page_text,
-            reply_markup=reply_markup,
-            parse_mode=enums.ParseMode.HTML
-        )
-    )
-    if reply:
-        bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
+    except Exception as e:
+        # Do not send error details to the user or log channel
+        logger.error(f"Error in instant_search_handler: {e}")
 
 @bot.on_callback_query(filters.regex(r"^search:(.+):(\d+)$"))
 async def search_pagination_handler(client, callback_query: CallbackQuery):

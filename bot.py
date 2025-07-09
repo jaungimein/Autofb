@@ -252,14 +252,17 @@ async def channel_file_handler(client, message):
     await file_queue.join()
     invalidate_search_cache()
 
-@bot.on_message(filters.command("index") & filters.private & filters.user(OWNER_ID) )
+@bot.on_message(filters.command("index") & filters.private & filters.user(OWNER_ID))
 async def index_channel_files(client, message):
     """
     Handles the /index command for the owner.
-    - Asks for start and end file links.
-    - Indexes files in the specified range from allowed channels.
-    - Only supports /c/ links.
+    - Supports optional 'dup' flag.
     """
+    # Support both `/index` and `/index dup`
+    dup = False
+    if len(message.command) > 1 and message.command[1].lower() == "dup":
+        dup = True
+
     prompt = await safe_api_call(message.reply_text("Please send the **start file link** (Telegram message link, only /c/ links supported):"))
     try:
         start_msg = await client.listen(message.chat.id, timeout=120)
@@ -297,7 +300,7 @@ async def index_channel_files(client, message):
         await message.reply_text(f"Invalid link: {e}")
         return
 
-    reply = await message.reply_text(f"Indexing files from {start_msg_id} to {end_msg_id} in channel {channel_id}...")
+    reply = await message.reply_text(f"Indexing files from {start_msg_id} to {end_msg_id} in channel {channel_id}... Duplicates allowed: {dup}")
 
     batch_size = 50
     total_queued = 0
@@ -319,12 +322,13 @@ async def index_channel_files(client, message):
                 await queue_file_for_processing(
                     msg,
                     channel_id=channel_id,
-                    reply_func=reply.edit_text
+                    reply_func=reply.edit_text,
+                    duplicate=dup      # Pass the flag here!
                 )
                 total_queued += 1
         invalidate_search_cache()
 
-    logger.info(f"✅ Queued {total_queued} files from channel {channel_id} for processing.")
+    logger.info(f"✅ Queued {total_queued} files from channel {channel_id} for processing. Duplicates allowed: {dup}")
 
 
 @bot.on_message(filters.private & filters.command("del") & filters.user(OWNER_ID))
@@ -501,28 +505,48 @@ async def send_log_file(client, message: Message):
 
 @bot.on_message(filters.command("stats") & filters.private & filters.user(OWNER_ID))
 async def stats_command(client, message: Message):
-    """Show statistics (only for OWNER_ID)."""
+    """Show statistics including per-channel file counts (OWNER only)."""
     try:
         total_auth_users = auth_users_col.count_documents({})
         total_users = users_col.count_documents({})
-        total_files = files_col.count_documents({})
+
+        # Total file storage size
         pipeline = [
             {"$group": {"_id": None, "total": {"$sum": "$file_size"}}}
         ]
         result = list(files_col.aggregate(pipeline))
         total_storage = result[0]["total"] if result else 0
 
+        # Database storage size
         stats = db.command("dbstats")
         db_storage = stats.get("storageSize", 0)
 
-        await safe_api_call(
-            message.reply_text(
-            f"👤 Total auth users: <b>{total_auth_users}/{total_users}</b>\n"
-            f"📁 Total files: <b>{total_files}</b>\n"
-            f"💾 Files size: <b>{human_readable_size(total_storage)}</b>\n"
-            f"📊 Database storage used: <b>{db_storage / (1024 * 1024):.2f} MB</b>",
-            )
+        # Per-channel counts
+        channel_pipeline = [
+            {"$group": {"_id": "$channel_id", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}}
+        ]
+        channel_counts = list(files_col.aggregate(channel_pipeline))
+        channel_docs = allowed_channels_col.find({}, {"_id": 0, "channel_id": 1, "channel_name": 1})
+        channel_names = {c["channel_id"]: c.get("channel_name", "") for c in channel_docs}
+
+        # Compose stats message
+        text = (
+            f"👤 <b>Total auth users:</b> <code>{total_auth_users}</code> / <b>Total users:</b> <code>{total_users}</code>\n"
+            f"💾 <b>Files size:</b> <code>{human_readable_size(total_storage)}</code>\n"
+            f"📊 <b>Database storage used:</b> <code>{db_storage / (1024 * 1024):.2f} MB</code>\n\n"
+            f"<b>Total files count by channel:</b>\n"
         )
+
+        if not channel_counts:
+            text += "No files indexed yet."
+        else:
+            for c in channel_counts:
+                chan_id = c['_id']
+                chan_name = channel_names.get(chan_id, 'Unknown')
+                text += f"• <b>{chan_name}</b>: <b>{c['count']}</b>\n"
+
+        await message.reply_text(text, parse_mode=enums.ParseMode.HTML)
     except Exception as e:
         await message.reply_text(f"⚠️ An error occurred while fetching stats:\n<code>{e}</code>")
 

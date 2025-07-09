@@ -363,7 +363,7 @@ async def file_queue_worker(bot):
     last_reply_func = None
     while True:
         item = await file_queue.get()
-        file_info, reply_func, message = item
+        file_info, reply_func, message, duplicate = item
         processing_count += 1
         if reply_func:
             last_reply_func = reply_func
@@ -376,13 +376,14 @@ async def file_queue_worker(bot):
             if existing:
                 telegram_link = generate_c_link(file_info["channel_id"], file_info["message_id"])
                 if reply_func:
-                    await safe_api_call(
-                        bot.send_message(
-                            LOG_CHANNEL_ID,
-                            f"⚠️ Duplicate File.\nLink: {telegram_link}",
-                            parse_mode=enums.ParseMode.HTML
+                    if duplicate:
+                        await safe_api_call(
+                            bot.send_message(
+                                LOG_CHANNEL_ID,
+                                f"⚠️ Duplicate File.\nLink: {telegram_link}",
+                                parse_mode=enums.ParseMode.HTML
+                            )
                         )
-                    )
             else:
                 upsert_file_info(file_info)
                 if message.audio:
@@ -447,11 +448,11 @@ async def file_queue_worker(bot):
 # Unified File Queueing
 # =========================
 
-async def queue_file_for_processing(message, channel_id=None, reply_func=None):
+async def queue_file_for_processing(message, channel_id=None, reply_func=None, duplicate=True):
     try:            
         file_info = extract_file_info(message, channel_id=channel_id)
         if file_info["file_name"]:
-            await file_queue.put((file_info, reply_func, message))
+            await file_queue.put((file_info, reply_func, message, duplicate))
     except Exception as e:
         if reply_func:
             await safe_api_call(reply_func(f"❌ Error queuing file: {e}"))

@@ -84,10 +84,7 @@ def build_search_pipeline(query, allowed_ids, skip, limit):
             "index": "default",
             "text": {
                 "query": query,
-                "path": "file_name",
-                "fuzzy": {
-                    "prefixLength": 6
-                }
+                "path": "file_name"
             }
         }
     }

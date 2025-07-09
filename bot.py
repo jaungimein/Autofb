@@ -10,8 +10,6 @@ import re
 import sys
 from datetime import datetime, timezone
 from collections import defaultdict
-from urllib.parse import unquote_plus
-
 
 from pyrogram import Client, enums, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, BotCommand
@@ -75,6 +73,54 @@ def encode_file_link(channel_id, message_id):
     # Returns a base64 string for deep linking
     raw = f"{channel_id}_{message_id}".encode()
     return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+
+def sanitize_query(query):
+    # Remove excessive whitespace and limit length
+    return re.sub(r"\s+", " ", query.strip())[:100]
+
+def build_search_pipeline(query, allowed_ids, skip, limit):
+    search_stage = {
+        "$search": {
+            "index": "default",
+            "text": {
+                "query": query,
+                "path": "file_name",
+                "fuzzy": {
+                    "maxEdits": 1,
+                    "prefixLength": 3,
+                    "maxExpansions": 10
+                }
+            }
+        }
+    }
+    match_stage = {"$match": {"channel_id": {"$in": allowed_ids}}}
+    project_stage = {
+        "$project": {
+            "_id": 0,
+            "file_name": 1,
+            "file_size": 1,
+            "file_format": 1,
+            "message_id": 1,
+            "date": 1,
+            "channel_id": 1,
+            "score": {"$meta": "searchScore"}
+        }
+    }
+    sort_stage = {"$sort": {"score": -1}}
+    facet_stage = {
+        "$facet": {
+            "results": [
+                project_stage,
+                sort_stage,
+                {"$skip": skip},
+                {"$limit": limit}
+            ],
+            "totalCount": [
+                {"$count": "total"}
+            ]
+        }
+    }
+    return [search_stage, match_stage, facet_stage]
 
 # =========================
 # Bot Command Handlers
@@ -552,88 +598,38 @@ async def imgbb_upload_reply_url_handler(client, message):
     except Exception as e:
         await message.reply_text(f"⚠️ An unexpected error occurred: {e}")
 
-@bot.on_message(
-    filters.private & filters.text & ~filters.command([
-        "start", "index", "del", "restart", "restore", "add", "rm", "broadcast", "log", "stats", "tmdb", "imgbb", "chatop"
-    ])
-)
-async def instant_text_search_handler(client, message):
-    """
-    Instantly search when user sends any text in private chat.
-    """
-    query = message.text.strip()
+
+@bot.on_message(filters.private & filters.text & ~filters.command([
+    "start", "stats", "add", "rm", "broadcast", "log", "tmdb", "imgbb", "restore", "index", "del", "restart", "chatop"
+]))
+async def instant_search_handler(client, message):
+    query = sanitize_query(message.text)
     if not query:
         return
-    page = 0
-    await send_search_results(client, message, query, page)
 
-async def send_search_results(client, message_or_callback, query, page, as_callback=False, channel_id=None):
-    skip = page * SEARCH_PAGE_SIZE
-    files, total_files = get_cached_search(query, page, channel_id)
+    page = 1
+    skip = (page - 1) * SEARCH_PAGE_SIZE
+
+    files, total_files = get_cached_search(query, page, None)
     if files is None:
-        search_stage = {
-            "$search": {
-                "index": "default",  # Change if your index is named differently
-                "text": {
-                    "query": query,
-                    "path": "file_name",
-                    "fuzzy": {
-                        "maxEdits": 2,      # Allow up to 2 typos
-                        "prefixLength": 2,  # Require first 2 chars to match
-                        "maxExpansions": 50
-                    }
-                }
-            }
-        }
-        match_stage = {}
-        if channel_id is not None:
-            match_stage = {"$match": {"channel_id": channel_id}}
-        else:
-            channels = list(allowed_channels_col.find({}, {"_id": 0, "channel_id": 1}))
-            allowed_ids = [c["channel_id"] for c in channels]
-            match_stage = {"$match": {"channel_id": {"$in": allowed_ids}}}
-
-        pipeline = [
-            search_stage,
-            match_stage,
-            {"$project": {
-                "_id": 0,
-                "file_name": 1,
-                "file_size": 1,
-                "file_format": 1,
-                "message_id": 1,
-                "date": 1,
-                "channel_id": 1,
-                "score": {"$meta": "searchScore"}
-            }},
-            {"$sort": {"score": -1}},
-            {"$skip": skip},
-            {"$limit": SEARCH_PAGE_SIZE}
-        ]
-        files = list(files_col.aggregate(pipeline))
-        # For total count, run the same pipeline but with $count
-        count_pipeline = [
-            search_stage,
-            match_stage,
-            {"$count": "total"}
-        ]
-        count_result = list(files_col.aggregate(count_pipeline))
-        total_files = count_result[0]["total"] if count_result else 0
-        set_cached_search(query, page, channel_id, files, total_files)
+        channels = list(allowed_channels_col.find({}, {"_id": 0, "channel_id": 1}))
+        allowed_ids = [c["channel_id"] for c in channels]
+        pipeline = build_search_pipeline(query, allowed_ids, skip, SEARCH_PAGE_SIZE)
+        result = list(files_col.aggregate(pipeline))
+        files = result[0]["results"] if result and result[0]["results"] else []
+        total_files = result[0]["totalCount"][0]["total"] if result and result[0]["totalCount"] else 0
+        set_cached_search(query, page, None, files, total_files)
 
     if not files:
-        text = "No files found for your search."
-        if as_callback:
-            reply = await safe_api_call(message_or_callback.edit_message_text(text))
-            if reply:
-                bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
-        else:
-            reply = await safe_api_call(message_or_callback.reply_text(text))
-            if reply:
-                bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
+        reply = await safe_api_call(message.reply_text("No files found for your search."))
+        if reply:
+            bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
         return
 
-    text = f"Search results for <b>{query}</b> (Page {page+1}):"
+    total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE
+    current_page = 1
+
+    text = f"Search results for <b>{query}</b>:"
     buttons = []
     for f in files:
         file_link = encode_file_link(f["channel_id"], f["message_id"])
@@ -643,142 +639,87 @@ async def send_search_results(client, message_or_callback, query, page, as_callb
             InlineKeyboardButton(btn_text, url=f"https://t.me/{BOT_USERNAME}?start=file_{file_link}")
         ])
 
-    nav = []
-    if skip > 0:
-        if channel_id is not None:
-            nav.append(InlineKeyboardButton("⬅️ Prev", callback_data=f"searchchan_{channel_id}_{page-1}_{quote_plus(query)}"))
-        else:
-            nav.append(InlineKeyboardButton("⬅️ Prev", callback_data=f"search_{quote_plus(query)}_{page-1}"))
-    if skip + SEARCH_PAGE_SIZE < total_files:
-        if channel_id is not None:
-            nav.append(InlineKeyboardButton("Next ➡️", callback_data=f"searchchan_{channel_id}_{page+1}_{quote_plus(query)}"))
-        else:
-            nav.append(InlineKeyboardButton("Next ➡️", callback_data=f"search_{quote_plus(query)}_{page+1}"))
-    if nav:
-        buttons.append(nav)
-
-    if as_callback:
-        reply = await safe_api_call(
-            message_or_callback.edit_message_text(
-                text,
-                reply_markup=InlineKeyboardMarkup(buttons),
-                parse_mode=enums.ParseMode.HTML
+    # Pagination
+    page_buttons = []
+    page_text = f"\nPage <b>{current_page}</b> of <b>{total_pages}</b>"
+    if total_pages > 1:
+        if current_page > 1:
+            page_buttons.append(
+                InlineKeyboardButton("⬅️ Prev", callback_data=f"search:{quote_plus(query)}:{current_page-1}")
             )
-        )
-        if reply:
-            bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
-    else:
-        reply = await safe_api_call(
-            message_or_callback.reply_text(
-                text,
-                reply_markup=InlineKeyboardMarkup(buttons),
-                parse_mode=enums.ParseMode.HTML
+        if current_page < total_pages:
+            page_buttons.append(
+                InlineKeyboardButton("➡️ Next", callback_data=f"search:{quote_plus(query)}:{current_page+1}")
             )
-        )
-        if reply:
-            bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
 
-@bot.on_callback_query(filters.regex(r"^search_(.+)_(\d+)$"))
-async def search_pagination_callback(client, callback_query: CallbackQuery):
-    m = re.match(r"^search_(.+)_(\d+)$", callback_query.data)
-    if not m:
-        reply = await safe_api_call(callback_query.answer("Invalid search callback.", show_alert=True))
-        return
-    query, page = m.groups()
-    query = unquote_plus(query)
-    page = int(page)
-    await send_search_results(client, callback_query, query, page, as_callback=True)
-
-@bot.on_callback_query(filters.regex(r"^searchchan_(\-?\d+)_(\d+)_(.+)$"))
-async def search_channel_callback(client, callback_query: CallbackQuery):
-    m = re.match(r"^searchchan_(\-?\d+)_(\d+)_(.+)$", callback_query.data)
-    if not m:
-        reply = await safe_api_call(callback_query.answer("Invalid search-in-channel callback.", show_alert=True))
-        return
-    channel_id, page, query = m.groups()
-    channel_id = int(channel_id)
-    page = int(page)
-    query = unquote_plus(query)
-    await send_search_results(client, callback_query, query, page, as_callback=True, channel_id=channel_id)
-
-@bot.on_callback_query(filters.regex(r"^browse_(\-?\d+)_(\d+)$"))
-async def browse_channel_callback(client, callback_query: CallbackQuery):
-    m = re.match(r"^browse_(\-?\d+)_(\d+)$", callback_query.data)
-    if not m:
-        reply = await safe_api_call(callback_query.answer("Invalid browse callback.", show_alert=True))
-        return
-    channel_id, page = m.groups()
-    channel_id = int(channel_id)
-    page = int(page)
-    skip = page * SEARCH_PAGE_SIZE
-    files = list(files_col.find(
-        {"channel_id": channel_id},
-        {"_id": 0, "file_name": 1, "file_size": 1, "file_format": 1, "message_id": 1, "date": 1, "channel_id": 1}
-    ).sort("message_id", -1).skip(skip).limit(SEARCH_PAGE_SIZE))
-    total_files = files_col.count_documents({"channel_id": channel_id})
-
-    channel_doc = allowed_channels_col.find_one({"channel_id": channel_id})
-    channel_name = channel_doc["channel_name"] if channel_doc else str(channel_id)
-
-    if not files:
-        reply = await safe_api_call(callback_query.edit_message_text(f"No files found in <b>{channel_name}</b>.", parse_mode=enums.ParseMode.HTML))
-        if reply:
-            bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
-        return
-
-    text = f"Browsing <b>{channel_name}</b> (Page {page+1}):"
-    buttons = []
-    for f in files:
-        file_link = encode_file_link(f["channel_id"], f["message_id"])
-        size_str = human_readable_size(f.get('file_size', 0))
-        btn_text = f"{size_str} | {f.get('file_name')}"
-        buttons.append([
-            InlineKeyboardButton(btn_text, url=f"https://t.me/{BOT_USERNAME}?start=file_{file_link}")
-        ])
-
-    nav = []
-    if skip > 0:
-        nav.append(InlineKeyboardButton("⬅️ Prev", callback_data=f"browse_{channel_id}_{page-1}"))
-    if skip + SEARCH_PAGE_SIZE < total_files:
-        nav.append(InlineKeyboardButton("Next ➡️", callback_data=f"browse_{channel_id}_{page+1}"))
-    if nav:
-        buttons.append(nav)
+    reply_markup = InlineKeyboardMarkup(buttons + ([page_buttons] if page_buttons else []))
 
     reply = await safe_api_call(
-        callback_query.edit_message_text(
-            text,
-            reply_markup=InlineKeyboardMarkup(buttons),
+        message.reply_text(
+            text + page_text,
+            reply_markup=reply_markup,
             parse_mode=enums.ParseMode.HTML
         )
     )
     if reply:
         bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
 
-@bot.on_message(filters.chat(GROUP_ID) & filters.service)
-async def delete_service_messages(client, message):
+@bot.on_callback_query(filters.regex(r"^search:(.+):(\d+)$"))
+async def search_pagination_handler(client, callback_query: CallbackQuery):
+    from urllib.parse import unquote_plus
+    query, page = callback_query.matches[0].group(1), int(callback_query.matches[0].group(2))
+    query = sanitize_query(unquote_plus(query))
+    skip = (page - 1) * SEARCH_PAGE_SIZE
+
+    files, total_files = get_cached_search(query, page, None)
+    if files is None:
+        channels = list(allowed_channels_col.find({}, {"_id": 0, "channel_id": 1}))
+        allowed_ids = [c["channel_id"] for c in channels]
+        pipeline = build_search_pipeline(query, allowed_ids, skip, SEARCH_PAGE_SIZE)
+        result = list(files_col.aggregate(pipeline))
+        files = result[0]["results"] if result and result[0]["results"] else []
+        total_files = result[0]["totalCount"][0]["total"] if result and result[0]["totalCount"] else 0
+        set_cached_search(query, page, None, files, total_files)
+
+    if not files:
+        await callback_query.answer("No files found for this page.", show_alert=True)
+        return
+
+    total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE
+    text = f"Search results for <b>{query}</b>:"
+    buttons = []
+    for f in files:
+        file_link = encode_file_link(f["channel_id"], f["message_id"])
+        size_str = human_readable_size(f.get('file_size', 0))
+        btn_text = f"{size_str} | {f.get('file_name')}"
+        buttons.append([
+            InlineKeyboardButton(btn_text, url=f"https://t.me/{BOT_USERNAME}?start=file_{file_link}")
+        ])
+
+    # Pagination
+    page_buttons = []
+    if total_pages > 1:
+        if page > 1:
+            page_buttons.append(
+                InlineKeyboardButton("⬅️ Prev", callback_data=f"search:{quote_plus(query)}:{page-1}")
+            )
+        if page < total_pages:
+            page_buttons.append(
+                InlineKeyboardButton("➡️ Next", callback_data=f"search:{quote_plus(query)}:{page+1}")
+            )
+    page_text = f"\nPage <b>{page}</b> of <b>{total_pages}</b>"
+
+    reply_markup = InlineKeyboardMarkup(buttons + ([page_buttons] if page_buttons else []))
+
     try:
-        # Greet new members and guide them to use /search
-        if message.new_chat_members:
-            for user in message.new_chat_members:
-                try:
-                    reply = await message.reply_text(
-                        f"<b>Welcome, {user.first_name}!</b>\n"
-                        f"<b>Find any file instantly.</b>\n"
-                        f"DM <b>@{BOT_USERNAME}</b> and use <code>/search</code> to get started.",
-                        parse_mode=enums.ParseMode.HTML,
-                        reply_markup=InlineKeyboardMarkup(
-                            [
-                                [InlineKeyboardButton("Updates Channel", url=f"{UPDATE_CHANNEL_LINK}")]
-                            ]
-                        )
-                    )
-                    if reply:
-                        bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
-                except Exception as e:
-                    logger.error(f"Failed to greet new member: {e}")
-        await message.delete()
-    except Exception as e:
-        logger.error(f"Failed to delete service message: {e}")
+        await callback_query.edit_message_text(
+            text + page_text,
+            reply_markup=reply_markup,
+            parse_mode=enums.ParseMode.HTML
+        )
+    except Exception:
+        pass
+    await callback_query.answer()
 
 @bot.on_message(filters.chat(GROUP_ID) & filters.service)
 async def delete_service_messages(client, message):

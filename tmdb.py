@@ -57,15 +57,15 @@ def format_tmdb_info(tmdb_type, movie_id, data):
         else:
             rating_str = None
 
-        message = f"🎬 <b>Title:</b> {title}\n"
-        message += f"📅 <b>Release Year:</b> {release_year}\n\n" if release_year else "\n"
-        message += f"📝 <b>Overview:</b> {plot}\n\n" if plot else ""
-        message += f"⭐ <b>Rating:</b> {rating_str}\n" if rating_str else ""
-        message += f"🌐 <b>Languages:</b> {spoken_languages}\n" if spoken_languages else ""
-        message += f"⏱️ <b>Duration:</b> {runtime}\n" if runtime else ""
-        message += f"🎭 <b>Stars:</b> {starring}\n" if starring else ""
-        message += f"🎬 <b>Director:</b> {director}\n" if director else ""
-        message += f"🎭 <b>Genre:</b> {genre_tags}\n\n" if genre_tags else ""
+        message = f"<b>🎬 Title:</b> <b>{title}</b>\n"
+        message += f"<b>📅 Release Year:</b> <b>{release_year}</b>\n\n" if release_year else "\n"
+        message += f"<b>📝 Overview:</b> <b>{plot}</b>\n\n" if plot else ""
+        message += f"<b>⭐ Rating:</b> <b>{rating_str}</b>\n" if rating_str else ""
+        message += f"<b>🌐 Languages:</b> <b>{spoken_languages}</b>\n" if spoken_languages else ""
+        message += f"<b>⏱️ Duration:</b> <b>{runtime}</b>\n" if runtime else ""
+        message += f"<b>🎭 Stars:</b> <b>{starring}</b>\n" if starring else ""
+        message += f"<b>🎬 Director:</b> <b>{director}</b>\n" if director else ""
+        message += f"<b>🎭 Genre:</b> <b>{genre_tags}</b>\n\n" if genre_tags else ""
 
         return message.strip()
 
@@ -90,15 +90,14 @@ def format_tmdb_info(tmdb_type, movie_id, data):
         else:
             rating_str = None
 
-
-        message = f"📺 <b>Title:</b> {title}\n"
-        message += f"📅 <b>Release Year:</b> {release_year}\n\n" if release_year else "\n"
-        message += f"📝 <b>Overview:</b> {plot}\n\n" if plot else ""
-        message += f"⭐ <b>Rating:</b> {rating_str}\n" if rating_str else ""
-        message += f"🌐 <b>Languages:</b> {spoken_languages}\n" if spoken_languages else ""
-        message += f"🎭 <b>Stars:</b> {starring}\n" if starring else ""
-        message += f"🎬 <b>Director:</b> {director}\n" if director else ""
-        message += f"🎭 <b>Genre:</b> {genre_tags}\n\n" if genre_tags else ""
+        message = f"<b>📺 Title:</b> <b>{title}</b>\n"
+        message += f"<b>📅 Release Year:</b> <b>{release_year}</b>\n\n" if release_year else "\n"
+        message += f"<b>📝 Overview:</b> <b>{plot}</b>\n\n" if plot else ""
+        message += f"<b>⭐ Rating:</b> <b>{rating_str}</b>\n" if rating_str else ""
+        message += f"<b>🌐 Languages:</b> <b>{spoken_languages}</b>\n" if spoken_languages else ""
+        message += f"<b>🎭 Stars:</b> <b>{starring}</b>\n" if starring else ""
+        message += f"<b>🎬 Director:</b> <b>{director}</b>\n" if director else ""
+        message += f"<b>🎭 Genre:</b> <b>{genre_tags}</b>\n\n" if genre_tags else ""
 
         return message.strip()
     else:

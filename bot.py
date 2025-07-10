@@ -78,6 +78,10 @@ def sanitize_query(query):
     # Remove excessive whitespace and limit length
     return re.sub(r"\s+", " ", query.strip())[:100]
 
+def contains_url(text):
+    url_pattern = r'https?://\S+|www\.\S+'
+    return re.search(url_pattern, text) is not None
+
 def build_search_pipeline(query, allowed_ids, skip, limit):
     search_stage = {
         "$search": {
@@ -625,6 +629,8 @@ async def imgbb_upload_reply_url_handler(client, message):
 ]))
 async def instant_search_handler(client, message):
     try:
+        if contains_url(message.text):
+            return
         query = sanitize_query(message.text)
         if not query:
             return

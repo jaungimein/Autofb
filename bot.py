@@ -597,7 +597,10 @@ async def imgbb_upload_reply_url_handler(client, message):
 
         image_url = message.reply_to_message.text.strip()
         caption = message.text.split(maxsplit=1)[1] if len(message.text.split(maxsplit=1)) > 1 else ""
-        if not caption.strip():
+        caption_cleaned = caption.replace('.', ' ')
+        caption_cleaned = re.sub(r'[\(\)\[\]\-]', '', caption_cleaned)
+        caption = caption_cleaned.strip()
+        if not caption:
             await message.reply_text("❌ Please provide a caption with the command. Usage: /imgbb <caption>")
             return
         imgbb_client = imgbbpy.AsyncClient(IMGBB_API_KEY)

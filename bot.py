@@ -41,7 +41,7 @@ from tmdb import get_by_id
 import logging
 from pyrogram.types import CallbackQuery
 import base64
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, unquote_plus
 
 # =========================
 # Constants & Globals
@@ -635,56 +635,30 @@ async def instant_search_handler(client, message):
         if not query:
             return
 
-        page = 1
-        skip = (page - 1) * SEARCH_PAGE_SIZE
-
-        files, total_files = get_cached_search(query, page, None)
-        if files is None:
-            channels = list(allowed_channels_col.find({}, {"_id": 0, "channel_id": 1}))
-            allowed_ids = [c["channel_id"] for c in channels]
-            pipeline = build_search_pipeline(query, allowed_ids, skip, SEARCH_PAGE_SIZE)
-            result = list(files_col.aggregate(pipeline))
-            files = result[0]["results"] if result and result[0]["results"] else []
-            total_files = result[0]["totalCount"][0]["total"] if result and result[0]["totalCount"] else 0
-            set_cached_search(query, page, None, files, total_files)
-
-        if not files:
-            reply = await safe_api_call(message.reply_text("No files found for your search."))
+        channels = list(allowed_channels_col.find({}, {"_id": 0, "channel_id": 1, "channel_name": 1}))
+        if not channels:
+            reply = await safe_api_call(message.reply_text("No allowed channels available for search."))
             if reply:
                 bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
             return
 
-        total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE
-        current_page = 1
-
-        text = f"Search results for <b>{query}</b>:"
+        # Show channel selection buttons
+        text = f"<b>What are you looking for</b>:"
         buttons = []
-        for f in files:
-            file_link = encode_file_link(f["channel_id"], f["message_id"])
-            size_str = human_readable_size(f.get('file_size', 0))
-            btn_text = f"{size_str} | {f.get('file_name')}"
+        for c in channels:
+            chan_id = c["channel_id"]
+            chan_name = c.get("channel_name", str(chan_id))
+            # Callback data includes query and channel_id, page=1
             buttons.append([
-                InlineKeyboardButton(btn_text, url=f"https://t.me/{BOT_USERNAME}?start=file_{file_link}")
+                InlineKeyboardButton(
+                    chan_name,
+                    callback_data=f"search_channel:{quote_plus(query)}:{chan_id}:1"
+                )
             ])
-
-        # Pagination
-        page_buttons = []
-        page_text = f"\nPage <b>{current_page}</b> of <b>{total_pages}</b>"
-        if total_pages > 1:
-            if current_page > 1:
-                page_buttons.append(
-                    InlineKeyboardButton("⬅️ Prev", callback_data=f"search:{quote_plus(query)}:{current_page-1}")
-                )
-            if current_page < total_pages:
-                page_buttons.append(
-                    InlineKeyboardButton("➡️ Next", callback_data=f"search:{quote_plus(query)}:{current_page+1}")
-                )
-
-        reply_markup = InlineKeyboardMarkup(buttons + ([page_buttons] if page_buttons else []))
-
+        reply_markup = InlineKeyboardMarkup(buttons)
         reply = await safe_api_call(
             message.reply_text(
-                text + page_text,
+                text,
                 reply_markup=reply_markup,
                 parse_mode=enums.ParseMode.HTML
             )
@@ -692,33 +666,42 @@ async def instant_search_handler(client, message):
         if reply:
             bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
     except Exception as e:
-        # Do not send error details to the user or log channel
         logger.error(f"Error in instant_search_handler: {e}")
         await message.reply_text("Invalid search query. Please try again with a different query.")
 
-@bot.on_callback_query(filters.regex(r"^search:(.+):(\d+)$"))
-async def search_pagination_handler(client, callback_query: CallbackQuery):
-    from urllib.parse import unquote_plus
-    query, page = callback_query.matches[0].group(1), int(callback_query.matches[0].group(2))
+@bot.on_callback_query(filters.regex(r"^search_channel:(.+):(\d+):(\d+)$"))
+async def channel_search_callback_handler(client, callback_query: CallbackQuery):
+    """
+    Handles user's channel selection for search with pagination.
+    Performs the search only in the selected channel and displays paged results.
+    """
+    query = callback_query.matches[0].group(1)
+    channel_id = int(callback_query.matches[0].group(2))
+    page = int(callback_query.matches[0].group(3))
     query = sanitize_query(unquote_plus(query))
     skip = (page - 1) * SEARCH_PAGE_SIZE
 
-    files, total_files = get_cached_search(query, page, None)
-    if files is None:
-        channels = list(allowed_channels_col.find({}, {"_id": 0, "channel_id": 1}))
-        allowed_ids = [c["channel_id"] for c in channels]
-        pipeline = build_search_pipeline(query, allowed_ids, skip, SEARCH_PAGE_SIZE)
-        result = list(files_col.aggregate(pipeline))
-        files = result[0]["results"] if result and result[0]["results"] else []
-        total_files = result[0]["totalCount"][0]["total"] if result and result[0]["totalCount"] else 0
-        set_cached_search(query, page, None, files, total_files)
+    pipeline = build_search_pipeline(query, [channel_id], skip, SEARCH_PAGE_SIZE)
+    result = list(files_col.aggregate(pipeline))
+    files = result[0]["results"] if result and result[0]["results"] else []
+    total_files = result[0]["totalCount"][0]["total"] if result and result[0]["totalCount"] else 0
+
+    channel_info = allowed_channels_col.find_one({'channel_id': channel_id})
+    channel_name = channel_info.get('channel_name', str(channel_id)) if channel_info else str(channel_id)
 
     if not files:
-        await callback_query.answer("No files found for this page.", show_alert=True)
+        await callback_query.edit_message_text(
+            f"No files found for <b>{query}</b> in <b>{channel_name}</b>.",
+            parse_mode=enums.ParseMode.HTML
+        )
+        await callback_query.answer()
         return
 
     total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE
-    text = f"Search results for <b>{query}</b>:"
+    text = (
+        f"Search results for <b>{query}</b> in <b>{channel_name}</b>:"
+        f"\nPage <b>{page}</b> of <b>{total_pages}</b>"
+    )
     buttons = []
     for f in files:
         file_link = encode_file_link(f["channel_id"], f["message_id"])
@@ -728,24 +711,28 @@ async def search_pagination_handler(client, callback_query: CallbackQuery):
             InlineKeyboardButton(btn_text, url=f"https://t.me/{BOT_USERNAME}?start=file_{file_link}")
         ])
 
-    # Pagination
+    # Pagination controls
     page_buttons = []
-    if total_pages > 1:
-        if page > 1:
-            page_buttons.append(
-                InlineKeyboardButton("⬅️ Prev", callback_data=f"search:{quote_plus(query)}:{page-1}")
+    if page > 1:
+        page_buttons.append(
+            InlineKeyboardButton(
+                "⬅️ Prev",
+                callback_data=f"search_channel:{quote_plus(query)}:{channel_id}:{page-1}"
             )
-        if page < total_pages:
-            page_buttons.append(
-                InlineKeyboardButton("➡️ Next", callback_data=f"search:{quote_plus(query)}:{page+1}")
+        )
+    if page < total_pages:
+        page_buttons.append(
+            InlineKeyboardButton(
+                "➡️ Next",
+                callback_data=f"search_channel:{quote_plus(query)}:{channel_id}:{page+1}"
             )
-    page_text = f"\nPage <b>{page}</b> of <b>{total_pages}</b>"
+        )
 
     reply_markup = InlineKeyboardMarkup(buttons + ([page_buttons] if page_buttons else []))
 
     try:
         await callback_query.edit_message_text(
-            text + page_text,
+            text,
             reply_markup=reply_markup,
             parse_mode=enums.ParseMode.HTML
         )

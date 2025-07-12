@@ -675,6 +675,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     Handles user's channel selection for search with pagination.
     Performs the search only in the selected channel and displays paged results.
     """
+    print("Callback received:", callback_query.data)
     query = callback_query.matches[0].group(1)
     channel_id = int(callback_query.matches[0].group(2))
     page = int(callback_query.matches[0].group(3))

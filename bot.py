@@ -773,6 +773,31 @@ async def delete_service_messages(client, message):
     except Exception as e:
         logger.error(f"Failed to delete service message: {e}")
 
+@bot.on_message(filters.chat(GROUP_ID) & ~filters.service & ~filters.bot)
+async def group_auto_reply_and_delete(client, message):
+    try:
+        # Compose welcome message (same as service message greeting)
+        user = message.from_user
+        user_name = user.first_name if user else "User"
+        reply = await message.reply_text(
+            f"<b>Welcome, {user_name}!</b>\n"
+            f"<b>Find any file instantly.</b>\n"
+            f"DM <b>@{BOT_USERNAME}</b> and just send the movie or show name to search.",
+            parse_mode=enums.ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [InlineKeyboardButton("Updates Channel", url=f"{UPDATE_CHANNEL_LINK}")]
+                ]
+            )
+        )
+        # Optionally delete the bot's reply after some time (same as your bot.loop.create_task)
+        if reply:
+            bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
+        # Delete the user's original message
+        await message.delete()
+    except Exception as e:
+        logger.error(f"Failed to reply and delete message: {e}")
+
 @bot.on_message(filters.command("chatop") & filters.private & filters.user(OWNER_ID))
 async def chatop_handler(client, message: Message):
     """

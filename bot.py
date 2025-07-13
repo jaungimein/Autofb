@@ -643,16 +643,17 @@ async def instant_search_handler(client, message):
             return
 
         # Show channel selection buttons
-        text = f"<b>What are you looking for</b>:"
+        text = f"<b>What are you looking for 🔎</b> :"
         buttons = []
         for c in channels:
             chan_id = c["channel_id"]
             chan_name = c.get("channel_name", str(chan_id))
+            data = f"search_channel:{quote_plus(query)}:{chan_id}:1"
             # Callback data includes query and channel_id, page=1
             buttons.append([
                 InlineKeyboardButton(
                     chan_name,
-                    callback_data=f"search_channel:{quote_plus(query)}:{chan_id}:1"
+                    callback_data=data
                 )
             ])
         reply_markup = InlineKeyboardMarkup(buttons)
@@ -669,13 +670,12 @@ async def instant_search_handler(client, message):
         logger.error(f"Error in instant_search_handler: {e}")
         await message.reply_text("Invalid search query. Please try again with a different query.")
 
-@bot.on_callback_query(filters.regex(r"^search_channel:(.+):(\d+):(\d+)$"))
+@bot.on_callback_query(filters.regex(r"^search_channel:(.+):(-?\d+):(\d+)$"))
 async def channel_search_callback_handler(client, callback_query: CallbackQuery):
     """
     Handles user's channel selection for search with pagination.
     Performs the search only in the selected channel and displays paged results.
     """
-    print("Callback received:", callback_query.data)
     query = callback_query.matches[0].group(1)
     channel_id = int(callback_query.matches[0].group(2))
     page = int(callback_query.matches[0].group(3))
@@ -695,13 +695,19 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
             f"No files found for <b>{query}</b> in <b>{channel_name}</b>.",
             parse_mode=enums.ParseMode.HTML
         )
+        # Send to log channel with the query and user id
+        user_id = callback_query.from_user.id
+        await bot.send_message(
+            LOG_CHANNEL_ID,
+            f"🔎 No result for query:\n<code>{query}</code> in <b>{channel_name}</b>\nUser ID: <code>{user_id}</code>"
+        )
         await callback_query.answer()
         return
-
+    
     total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE
     text = (
-        f"Search results for <b>{query}</b> in <b>{channel_name}</b>:"
-        f"\nPage <b>{page}</b> of <b>{total_pages}</b>"
+        f"<b>📝 Searched: {query}</b>"
+        f"\n<b>{channel_name}: Page {page} of {total_pages}</b>"
     )
     buttons = []
     for f in files:

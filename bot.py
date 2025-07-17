@@ -24,8 +24,7 @@ from utility import (
     delete_after_delay, human_readable_size,
     queue_file_for_processing, file_queue_worker,
     file_queue, extract_tmdb_link, periodic_expiry_cleanup,
-    restore_tmdb_photos, restore_imgbb_photos,
-    get_cached_search, set_cached_search
+    restore_tmdb_photos, restore_imgbb_photos 
 )
 from db import (db, users_col, 
                 tokens_col, 
@@ -133,11 +132,13 @@ async def start_handler(client, message):
     - Handles token-based authorization.
     - Handles file access via deep link.
     - Sends a greeting if no special argument is provided.
+    - Deletes every message sent and received, but only once after all tasks are done.
     """
+    reply_msg = None  
     # Only allow in private chat
     if not message.chat.type == enums.ChatType.PRIVATE:
         try:
-            reply = await safe_api_call(
+            reply_msg = await safe_api_call(
                 message.reply_text(
                     f"🔒 Please <b>DM</b> to use <code>/start</code>.",
                     reply_markup=InlineKeyboardMarkup(
@@ -146,106 +147,90 @@ async def start_handler(client, message):
                     parse_mode=enums.ParseMode.HTML,
                 )
             )
-            if reply:
-                bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
-            bot.loop.create_task(delete_after_delay(client, message.chat.id, message.id))
         except Exception:
             pass
-        return
-    
-    try:
-        user_id = message.from_user.id
-        user = message.from_user
-        user_name = user.first_name or user.last_name or (user.username and f"@{user.username}") or "USER"
+    else:
+        try: 
+            user_id = message.from_user.id
+            user = message.from_user
+            user_name = user.first_name or user.last_name or (user.username and f"@{user.username}") or "USER"
 
-        add_user(user_id)
-        bot_username = BOT_USERNAME
+            add_user(user_id)
+            bot_username = BOT_USERNAME
 
-        # --- Token-based authorization ---
-        if len(message.command) == 2 and message.command[1].startswith("token_"):
-            if is_token_valid(message.command[1][6:], user_id):
-                authorize_user(user_id)
-                await safe_api_call(message.reply_text("✅ You are now authorized to access files for 24 hours."))
-                await safe_api_call(bot.send_message(LOG_CHANNEL_ID, f"✅ User <b>{user_name}</b> (<code>{user.id}</code>) authorized via token."))
+            # --- Token-based authorization ---
+            if len(message.command) == 2 and message.command[1].startswith("token_"):
+                if is_token_valid(message.command[1][6:], user_id):
+                    authorize_user(user_id)
+                    reply_msg = await safe_api_call(message.reply_text("✅ You are now authorized to access files for 24 hours."))
+                    await safe_api_call(bot.send_message(LOG_CHANNEL_ID, f"✅ User <b>{user_name}</b> (<code>{user.id}</code>) authorized via token."))
+                else:
+                    reply_msg = await safe_api_call(message.reply_text("❌ Invalid or expired token. Please get a new link."))
+
+            # --- File access via deep link ---
+            elif len(message.command) == 2 and message.command[1].startswith("file_"):
+                # Check if user is authorized, but skip for OWNER_ID
+                if user_id != OWNER_ID and not is_user_authorized(user_id):
+                    now = datetime.now(timezone.utc)
+                    token_doc = tokens_col.find_one({
+                        "user_id": user_id,
+                        "expiry": {"$gt": now}
+                    })
+                    token_id = token_doc["token_id"] if token_doc else generate_token(user_id)
+                    short_link = shorten_url(get_token_link(token_id, bot_username))
+                    reply_msg = await safe_api_call(message.reply_text(
+                        "❌ You are not authorized\n"
+                        "Please use this link to get access for 24 hours:",
+                        reply_markup=InlineKeyboardMarkup(
+                        [[InlineKeyboardButton("Get Access Link", url=short_link)]]
+                        )
+                    ))
+                elif user_id != OWNER_ID and user_file_count[user_id] >= MAX_FILES_PER_SESSION:
+                    reply_msg = await safe_api_call(message.reply_text("❌ You have reached the maximum of 10 files per session."))
+                else:
+                    # Decode file link and send file
+                    try: 
+                        b64 = message.command[1][5:]
+                        padding = '=' * (-len(b64) % 4)
+                        decoded = base64.urlsafe_b64decode(b64 + padding).decode()
+                        channel_id_str, msg_id_str = decoded.split("_")
+                        channel_id = int(channel_id_str)
+                        msg_id = int(msg_id_str)
+                        file_doc = files_col.find_one({"channel_id": channel_id, "message_id": msg_id})
+                        if not file_doc:
+                            reply_msg = await safe_api_call(message.reply_text("File not found."))
+                        else:
+                            reply_msg = await safe_api_call(client.copy_message(
+                                chat_id=message.chat.id,
+                                from_chat_id=file_doc["channel_id"],
+                                message_id=file_doc["message_id"]
+                            ))
+                            user_file_count[user_id] += 1
+                    except Exception as e:
+                        reply_msg = await safe_api_call(message.reply_text(f"Failed to send file: {e}"))
+            # --- Default greeting ---
             else:
-                await safe_api_call(message.reply_text("❌ Invalid or expired token. Please get a new link."))
-            return
-
-        # --- File access via deep link ---
-        if len(message.command) == 2 and message.command[1].startswith("file_"):
-            # Check if user is authorized, but skip for OWNER_ID
-            if user_id != OWNER_ID and not is_user_authorized(user_id):
-                now = datetime.now(timezone.utc)
-                token_doc = tokens_col.find_one({
-                    "user_id": user_id,
-                    "expiry": {"$gt": now}
-                })
-                token_id = token_doc["token_id"] if token_doc else generate_token(user_id)
-                short_link = shorten_url(get_token_link(token_id, bot_username))
-                reply = await safe_api_call(message.reply_text(
-                    "❌ You are not authorized\n"
-                    "Please use this link to get access for 24 hours:",
+                reply_msg = await safe_api_call(
+                    message.reply_text(
+                    f"<b>Welcome, {user_name}!</b>\n\n"
+                    f"<b>Just send me any movie or show name to search instantly.</b>\n\n"
+                    f"<b>Example:</b> <code>Batman</code>\n\n"
+                    f"<b>Need help?</b> Contact: {SUPPORT}",
                     reply_markup=InlineKeyboardMarkup(
-                    [[InlineKeyboardButton("Get Access Link", url=short_link)]]
+                        [
+                        [InlineKeyboardButton("Updates Channel", url=f"{UPDATE_CHANNEL_LINK}")]
+                        ]
+                    ),
+                    parse_mode=enums.ParseMode.HTML
                     )
-                ))
-                bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
+                )
+        except Exception as e:
+            reply_msg = await safe_api_call(message.reply_text(f"⚠️ An unexpected error occurred: {e}"))
 
-                return
-
-            # Limit file access per session
-            if user_id != OWNER_ID and user_file_count[user_id] >= MAX_FILES_PER_SESSION:
-                await safe_api_call(message.reply_text("❌ You have reached the maximum of 10 files per session."))
-                return
-
-            # Decode file link and send file
-            try: 
-                b64 = message.command[1][5:]
-                padding = '=' * (-len(b64) % 4)
-                decoded = base64.urlsafe_b64decode(b64 + padding).decode()
-                channel_id_str, msg_id_str = decoded.split("_")
-                channel_id = int(channel_id_str)
-                msg_id = int(msg_id_str)
-            except Exception:
-                await safe_api_call(message.reply_text("Invalid file link."))
-                return
-
-            file_doc = files_col.find_one({"channel_id": channel_id, "message_id": msg_id})
-            if not file_doc:
-                await safe_api_call(message.reply_text("File not found."))
-                return
-
-            try:
-                sent = await safe_api_call(client.copy_message(
-                    chat_id=message.chat.id,
-                    from_chat_id=file_doc["channel_id"],
-                    message_id=file_doc["message_id"]
-                ))
-                user_file_count[user_id] += 1
-                bot.loop.create_task(delete_after_delay(client, sent.chat.id, sent.id))
-            except Exception as e:
-                await safe_api_call(message.reply_text(f"Failed to send file: {e}"))
-            return
-
-        # --- Default greeting ---
-        reply = await safe_api_call(
-            message.reply_text(
-            f"<b>Welcome, {user_name}!</b>\n\n"
-            f"<b>Just send me any movie or show name to search instantly.</b>\n\n"
-            f"<b>Example:</b> <code>Batman</code>\n\n"
-            f"<b>Need help?</b> Contact: {SUPPORT}",
-            reply_markup=InlineKeyboardMarkup(
-                [
-                [InlineKeyboardButton("Updates Channel", url=f"{UPDATE_CHANNEL_LINK}")]
-                ]
-            ),
-            parse_mode=enums.ParseMode.HTML
-            )
-        )
-        if reply:
-            bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
-    except Exception as e:
-        await safe_api_call(message.reply_text(f"⚠️ An unexpected error occurred: {e}"))
+    # Delete the reply message and the user's message ONCE after all tasks are done
+    if reply_msg:
+        bot.loop.create_task(delete_after_delay(client, reply_msg.chat.id, reply_msg.id))
+    bot.loop.create_task(delete_after_delay(client, message.chat.id, message.id))
 
 @bot.on_message(filters.channel & (filters.document | filters.video | filters.audio | filters.photo))
 async def channel_file_handler(client, message):
@@ -339,8 +324,9 @@ async def index_channel_files(client, message):
 async def delete_command(client, message):
     try:
         args = message.text.split(maxsplit=2)
+        reply = None
         if len(args) < 3:
-            await message.reply_text("Usage: /del <file|tmdb|imgbb> <link>")
+            reply = await message.reply_text("Usage: /del <file|tmdb|imgbb> <link>")
             return
         delete_type = args[1].strip().lower()
         user_input = args[2].strip()
@@ -353,36 +339,39 @@ async def delete_command(client, message):
             # Try to find by channel_id and message_id (not msg_id)
             file_doc = files_col.find_one({"channel_id": channel_id, "message_id": msg_id})
             if not file_doc:
-                await message.reply_text("No file found with that link in the database.")
+                reply = await message.reply_text("No file found with that link in the database.")
                 return
             # Use the same keys for deletion as for finding
             result = files_col.delete_one({"channel_id": channel_id, "message_id": msg_id})
             if result.deleted_count > 0:
-                await message.reply_text(f"Database record deleted. File name: {file_doc.get('file_name')}")
+                reply = await message.reply_text(f"Database record deleted. File name: {file_doc.get('file_name')}")
             else:
-                await message.reply_text(f"No file found with File name: {file_doc.get('file_name')}")
+                reply = await message.reply_text(f"No file found with File name: {file_doc.get('file_name')}")
         elif delete_type == "tmdb":
             try:
                 tmdb_type, tmdb_id = await extract_tmdb_link(user_input)
             except Exception as e:
-                await message.reply_text(f"Error: {e}")
+                reply = await message.reply_text(f"Error: {e}")
                 return
             result = tmdb_col.delete_one({"tmdb_type": tmdb_type, "tmdb_id": tmdb_id})
             if result.deleted_count > 0:
-                await message.reply_text(f"Database record deleted {tmdb_type}/{tmdb_id}.")
+                reply = await message.reply_text(f"Database record deleted {tmdb_type}/{tmdb_id}.")
             else:
-                await message.reply_text(f"No TMDB record found with ID {tmdb_type}/{tmdb_id} in the database.")
+                reply = await message.reply_text(f"No TMDB record found with ID {tmdb_type}/{tmdb_id} in the database.")
         elif delete_type == "imgbb":
             result = imgbb_col.delete_one({"caption": user_input})
             if result.deleted_count > 0:
-                await message.reply_text(f"Database record deleted : {user_input}")
+                reply = await message.reply_text(f"Database record deleted : {user_input}")
             else:
-                await message.reply_text(f"No record found with: {user_input}")
+                reply = await message.reply_text(f"No record found with: {user_input}")
         else:
-            await message.reply_text("Invalid delete type. Use 'file' or 'tmdb' or 'imgbb'.")
-
+            reply = await message.reply_text("Invalid delete type. Use 'file' or 'tmdb' or 'imgbb'.")
+        if reply:
+            bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
     except Exception as e:
         await message.reply_text(f"Error: {e}")
+
+    bot.loop.create_task(delete_after_delay(client, message.chat.id, message.id))
                                  
 @bot.on_message(filters.command('restart') & filters.private & filters.user(OWNER_ID))
 async def restart(client, message):
@@ -549,7 +538,10 @@ async def stats_command(client, message: Message):
                 chan_name = channel_names.get(chan_id, 'Unknown')
                 text += f"<b>{chan_name}</b>: <b>{c['count']} files</b>\n"
 
-        await message.reply_text(text, parse_mode=enums.ParseMode.HTML)
+        reply = await message.reply_text(text, parse_mode=enums.ParseMode.HTML)
+        if reply:
+            bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
+        bot.loop.create_task(delete_after_delay(client, message.chat.id, message.id))
     except Exception as e:
         await message.reply_text(f"⚠️ An error occurred while fetching stats:\n<code>{e}</code>")
 
@@ -591,21 +583,21 @@ async def tmdb_command(client, message):
         logging.exception("Error in tmdb_command")
         await safe_api_call(message.reply_text(f"Error in tmdb command: {e}"))
 
-@bot.on_message(filters.command("imgbb") & filters.private & filters.reply & filters.user(OWNER_ID))
+@bot.on_message(filters.command("ib") & filters.private & filters.reply & filters.user(OWNER_ID))
 async def imgbb_upload_reply_url_handler(client, message):
     # User replies to a message containing the URL and sends: /imgbb <caption>
     try:
         if not message.reply_to_message or not message.reply_to_message.text:
-            await message.reply_text("❌ Please reply to a message containing the image URL and provide the caption with the command.")
+            reply = await message.reply_text("❌ Please reply to a message containing the image URL and provide the caption with the command.")
             return
-
+        
         image_url = message.reply_to_message.text.strip()
         caption = message.text.split(maxsplit=1)[1] if len(message.text.split(maxsplit=1)) > 1 else ""
         caption_cleaned = caption.replace('.', ' ')
         caption_cleaned = re.sub(r'[\(\)\[\]\-]', '', caption_cleaned)
         caption = caption_cleaned.strip()
         if not caption:
-            await message.reply_text("❌ Please provide a caption with the command. Usage: /imgbb <caption>")
+            reply = await message.reply_text("❌ Please provide a caption with the command. Usage: /ib <caption>")
             return
         imgbb_client = imgbbpy.AsyncClient(IMGBB_API_KEY)
         try:
@@ -617,15 +609,20 @@ async def imgbb_upload_reply_url_handler(client, message):
             imgbb_col.insert_one(pic_doc)
             await bot.send_photo(UPDATE_CHANNEL2_ID, f"{pic.url}", caption=f"<b>{caption}</b>")
         except Exception as e:
-            await message.reply_text(f"❌ Failed to upload image to imgbb: {e}")
+            reply = await message.reply_text(f"❌ Failed to upload image to imgbb: {e}")
         finally:
             await imgbb_client.close()
+        if reply:
+            bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
     except Exception as e:
         await message.reply_text(f"⚠️ An unexpected error occurred: {e}")
+    bot.loop.create_task(delete_after_delay(client, message.chat.id, message.id))
+    bot.loop.create_task(delete_after_delay(client, message.reply_to_message.chat.id, message.reply_to_message.id))
+
 
 
 @bot.on_message(filters.private & filters.text & ~filters.command([
-    "start", "stats", "add", "rm", "broadcast", "log", "tmdb", "imgbb", "restore", "index", "del", "restart", "chatop"
+    "start", "stats", "add", "rm", "broadcast", "log", "tmdb", "ib", "restore", "index", "del", "restart", "chatop"
 ]))
 async def instant_search_handler(client, message):
     try:
@@ -666,6 +663,7 @@ async def instant_search_handler(client, message):
         )
         if reply:
             bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
+        bot.loop.create_task(delete_after_delay(client, message.chat.id, message.id))
     except Exception as e:
         logger.error(f"Error in instant_search_handler: {e}")
         await message.reply_text("Invalid search query. Please try again with a different query.")
@@ -847,6 +845,8 @@ async def main():
 
     await bot.set_bot_commands([
         BotCommand("start", "check bot status"),
+        BotCommand("stats", "(admin only) Show bot stats"),
+        BotCommand("ib", "(admin only)"),
     ])
     
     bot.loop.create_task(start_fastapi())

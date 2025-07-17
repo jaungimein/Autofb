@@ -336,6 +336,15 @@ async def delete_after_delay(client, chat_id, msg_id):
     except Exception:
         pass
 
+async def auto_delete_message(bot_message, user_message):
+    try:
+        await safe_api_call(user_message.delete())
+        await asyncio.sleep(AUTO_DELETE_SECONDS)
+        await safe_api_call(bot_message.delete())
+    except Exception as e:
+        pass
+
+
 async def extract_tmdb_link(tmdb_url):
     movie_pattern = r'themoviedb\.org\/movie\/(\d+)'
     tv_pattern = r'themoviedb\.org\/tv\/(\d+)'

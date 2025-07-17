@@ -21,7 +21,7 @@ from utility import (
     add_user, is_token_valid, authorize_user, is_user_authorized,
     generate_token, shorten_url, get_token_link, extract_channel_and_msg_id,
     safe_api_call, get_allowed_channels, invalidate_search_cache,
-    delete_after_delay, human_readable_size,
+    auto_delete_message, human_readable_size,
     queue_file_for_processing, file_queue_worker,
     file_queue, extract_tmdb_link, periodic_expiry_cleanup,
     restore_tmdb_photos, restore_imgbb_photos 
@@ -227,10 +227,8 @@ async def start_handler(client, message):
         except Exception as e:
             reply_msg = await safe_api_call(message.reply_text(f"⚠️ An unexpected error occurred: {e}"))
 
-    # Delete the reply message and the user's message ONCE after all tasks are done
     if reply_msg:
-        bot.loop.create_task(delete_after_delay(client, reply_msg.chat.id, reply_msg.id))
-    bot.loop.create_task(delete_after_delay(client, message.chat.id, message.id))
+        bot.loop.create_task(auto_delete_message(message, reply_msg))
 
 @bot.on_message(filters.channel & (filters.document | filters.video | filters.audio | filters.photo))
 async def channel_file_handler(client, message):
@@ -367,11 +365,9 @@ async def delete_command(client, message):
         else:
             reply = await message.reply_text("Invalid delete type. Use 'file' or 'tmdb' or 'imgbb'.")
         if reply:
-            bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
+            bot.loop.create_task(auto_delete_message(message, reply))
     except Exception as e:
         await message.reply_text(f"Error: {e}")
-
-    bot.loop.create_task(delete_after_delay(client, message.chat.id, message.id))
                                  
 @bot.on_message(filters.command('restart') & filters.private & filters.user(OWNER_ID))
 async def restart(client, message):
@@ -540,8 +536,7 @@ async def stats_command(client, message: Message):
 
         reply = await message.reply_text(text, parse_mode=enums.ParseMode.HTML)
         if reply:
-            bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
-        bot.loop.create_task(delete_after_delay(client, message.chat.id, message.id))
+            bot.loop.create_task(auto_delete_message(message, reply))
     except Exception as e:
         await message.reply_text(f"⚠️ An error occurred while fetching stats:\n<code>{e}</code>")
 
@@ -613,11 +608,10 @@ async def imgbb_upload_reply_url_handler(client, message):
         finally:
             await imgbb_client.close()
         if reply:
-            bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
+            bot.loop.create_task(auto_delete_message(message.reply_to_message, reply))
+            await message.delete()
     except Exception as e:
         await message.reply_text(f"⚠️ An unexpected error occurred: {e}")
-    bot.loop.create_task(delete_after_delay(client, message.chat.id, message.id))
-    bot.loop.create_task(delete_after_delay(client, message.reply_to_message.chat.id, message.reply_to_message.id))
 
 
 
@@ -625,6 +619,7 @@ async def imgbb_upload_reply_url_handler(client, message):
     "start", "stats", "add", "rm", "broadcast", "log", "tmdb", "ib", "restore", "index", "del", "restart", "chatop"
 ]))
 async def instant_search_handler(client, message):
+    reply = None
     try:
         if contains_url(message.text):
             return
@@ -635,8 +630,6 @@ async def instant_search_handler(client, message):
         channels = list(allowed_channels_col.find({}, {"_id": 0, "channel_id": 1, "channel_name": 1}))
         if not channels:
             reply = await safe_api_call(message.reply_text("No allowed channels available for search."))
-            if reply:
-                bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
             return
 
         # Show channel selection buttons
@@ -661,12 +654,12 @@ async def instant_search_handler(client, message):
                 parse_mode=enums.ParseMode.HTML
             )
         )
-        if reply:
-            bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
-        bot.loop.create_task(delete_after_delay(client, message.chat.id, message.id))
     except Exception as e:
         logger.error(f"Error in instant_search_handler: {e}")
-        await message.reply_text("Invalid search query. Please try again with a different query.")
+        reply = await message.reply_text("Invalid search query. Please try again with a different query.")
+    if reply:
+        bot.loop.create_task(auto_delete_message(message, reply))
+
 
 @bot.on_callback_query(filters.regex(r"^search_channel:(.+):(-?\d+):(\d+)$"))
 async def channel_search_callback_handler(client, callback_query: CallbackQuery):
@@ -764,10 +757,9 @@ async def delete_service_messages(client, message):
                         )
                     )
                     if reply:
-                        bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
+                        bot.loop.create_task(auto_delete_message(message, reply))
                 except Exception as e:
                     logger.error(f"Failed to greet new member: {e}")
-        await message.delete()
     except Exception as e:
         logger.error(f"Failed to delete service message: {e}")
 
@@ -790,9 +782,8 @@ async def group_auto_reply_and_delete(client, message):
         )
         # Optionally delete the bot's reply after some time (same as your bot.loop.create_task)
         if reply:
-            bot.loop.create_task(delete_after_delay(client, reply.chat.id, reply.id))
+            bot.loop.create_task(auto_delete_message(message, reply))
         # Delete the user's original message
-        await message.delete()
     except Exception as e:
         logger.error(f"Failed to reply and delete message: {e}")
 

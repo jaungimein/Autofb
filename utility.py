@@ -336,7 +336,7 @@ async def delete_after_delay(client, chat_id, msg_id):
     except Exception:
         pass
 
-async def auto_delete_message(bot_message, user_message):
+async def auto_delete_message(user_message, bot_message):
     try:
         await safe_api_call(user_message.delete())
         await asyncio.sleep(AUTO_DELETE_SECONDS)

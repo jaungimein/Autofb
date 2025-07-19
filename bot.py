@@ -544,7 +544,8 @@ async def stats_command(client, message: Message):
 async def tmdb_command(client, message):
     try:
         if len(message.command) < 2:
-            await safe_api_call(message.reply_text("Usage: /tmdb tmdb_link"))
+            reply = await safe_api_call(message.reply_text("Usage: /tmdb tmdb_link"))
+            await auto_delete_message(message, reply)
             return
 
         tmdb_link = message.command[1]
@@ -577,11 +578,13 @@ async def tmdb_command(client, message):
     except Exception as e:
         logging.exception("Error in tmdb_command")
         await safe_api_call(message.reply_text(f"Error in tmdb command: {e}"))
+    await message.delete()
 
 @bot.on_message(filters.command("ib") & filters.private & filters.reply & filters.user(OWNER_ID))
 async def imgbb_upload_reply_url_handler(client, message):
     # User replies to a message containing the URL and sends: /imgbb <caption>
     try:
+        reply = None
         if not message.reply_to_message or not message.reply_to_message.text:
             reply = await message.reply_text("❌ Please reply to a message containing the image URL and provide the caption with the command.")
             return
@@ -609,7 +612,9 @@ async def imgbb_upload_reply_url_handler(client, message):
             await imgbb_client.close()
         if reply:
             bot.loop.create_task(auto_delete_message(message.reply_to_message, reply))
-            await message.delete()
+        else:
+            await message.reply_to_message.delete()
+        await message.delete()
     except Exception as e:
         await message.reply_text(f"⚠️ An unexpected error occurred: {e}")
 

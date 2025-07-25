@@ -714,7 +714,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     
     total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE
     text = (
-        f"<b>📝 Searched: {query}</b>"
+        f"<b>📝 Searched: <code>{query}</b></code>"
         f"\n<b>{channel_name}: Page {page} of {total_pages}</b>"
     )
     buttons = []

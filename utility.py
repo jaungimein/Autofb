@@ -225,7 +225,6 @@ async def restore_tmdb_photos(bot, start_id=None):
             if poster_url:
                 keyboard = InlineKeyboardMarkup(
                     [[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
-                await asyncio.sleep(3)  # Avoid hitting API limits
                 await safe_api_call(
                     bot.send_photo(
                         UPDATE_CHANNEL_ID,
@@ -253,7 +252,6 @@ async def restore_imgbb_photos(bot, start_id=None):
         pic_url = doc.get("pic_url")
         caption = doc.get("caption")
         try:
-            await asyncio.sleep(3) 
             # Avoid hitting API limits
             if pic_url:
                 # Extract fields from caption

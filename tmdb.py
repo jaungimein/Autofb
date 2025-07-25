@@ -66,7 +66,7 @@ def format_tmdb_info(tmdb_type, movie_id, data):
         message += "\n"
         message += f"<b>📝 Story:</b> {plot}\n\n" if plot else ""
         message += f"<b>🎬 Director:</b> {director}\n" if director else ""
-        message += f"<b>🎭 Stars:</b> <b>{starring}</b>\n" if starring else ""
+        message += f"<b>🎭 Stars:</b> {starring}\n" if starring else ""
 
         return message.strip()
 

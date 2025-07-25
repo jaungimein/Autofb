@@ -354,7 +354,7 @@ async def delete_command(client, message):
             # Use the same keys for deletion as for finding
             result = files_col.delete_one({"channel_id": channel_id, "message_id": msg_id})
             if result.deleted_count > 0:
-                reply = await message.reply_text(f"Database record deleted. File name: {file_doc.get('file_name')}")
+                reply = await message.reply_text(f"Database record deleted. File name: {file_doc.get('file_name')}\n({user_input})")
             else:
                 reply = await message.reply_text(f"No file found with File name: {file_doc.get('file_name')}")
         elif delete_type == "tmdb":
@@ -617,32 +617,7 @@ async def imgbb_upload_reply_url_handler(client, message):
                 "caption": caption,
             }
             imgbb_col.insert_one(pic_doc)
-            parts = caption.split()
-            date_pattern = r"\b(\d{2} \d{2} \d{2}|\d{4} \d{2} \d{2}|\d{4})\b"
-            studio = date = stars_and_scene = None
-            for i, part in enumerate(parts):
-                if re.match(date_pattern, part):
-                    date = part
-                    studio = " ".join(parts[:i]) if i > 0 else None
-                    rest = parts[i+1:]
-                    if rest:
-                        stars_and_scene = " ".join(rest)
-                    break
-            if not date and parts:
-                studio = parts[0]
-                rest = parts[1:]
-                if rest:
-                    stars_and_scene = " ".join(rest)
-
-            new_caption = ""
-            if studio:
-                new_caption += f"🏢 <b>Studio:</b> {studio}\n"
-            if date:
-                new_caption += f"📅 <b>Date:</b> {date}\n"
-            if stars_and_scene:
-                new_caption += f"⭐🎬 <b>Stars & Scene:</b> {stars_and_scene}\n"
-            await bot.send_photo(UPDATE_CHANNEL2_ID, f"{pic.url}", caption=new_caption.strip(), parse_mode=enums.ParseMode.HTML)
-
+            await bot.send_photo(UPDATE_CHANNEL2_ID, f"{pic.url}", caption=f"{caption}")
         except Exception as e:
             reply = await message.reply_text(f"❌ Failed to upload image to imgbb: {e}")
         finally:
@@ -653,8 +628,7 @@ async def imgbb_upload_reply_url_handler(client, message):
             await message.reply_to_message.delete()
         await message.delete()
     except Exception as e:
-        await message.reply_text(f"⚠️ An unexpected error occurred: {e}")
-        
+        await message.reply_text(f"⚠️ An unexpected error occurred: {e}")        
 
 @bot.on_message(filters.private & filters.text & ~filters.command([
     "start", "stats", "add", "rm", "broadcast", "log", "tmdb", "ib", "restore", "index", "del", "restart", "chatop"

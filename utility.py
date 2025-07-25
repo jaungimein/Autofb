@@ -225,6 +225,7 @@ async def restore_tmdb_photos(bot, start_id=None):
             if poster_url:
                 keyboard = InlineKeyboardMarkup(
                     [[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
+                await asyncio.sleep(3)  # Avoid hitting API limits
                 await safe_api_call(
                     bot.send_photo(
                         UPDATE_CHANNEL_ID,
@@ -252,55 +253,14 @@ async def restore_imgbb_photos(bot, start_id=None):
         pic_url = doc.get("pic_url")
         caption = doc.get("caption")
         try:
+            await asyncio.sleep(3) 
             # Avoid hitting API limits
             if pic_url:
-                # Extract fields from caption
-                studio = date = stars_and_scene = None
-                parts = caption.split()
-                date = None
-                studio = None
-                stars_and_scene = None                
-                # Try to find date in formats: YYYY MM DD, YY MM DD, YYYY
-                for i in range(len(parts)):
-                    # Check for YYYY MM DD or YY MM DD
-                    if i + 2 < len(parts) and (
-                        (re.match(r"\d{4}", parts[i]) and re.match(r"\d{2}", parts[i+1]) and re.match(r"\d{2}", parts[i+2])) or
-                        (re.match(r"\d{2}", parts[i]) and re.match(r"\d{2}", parts[i+1]) and re.match(r"\d{2}", parts[i+2]))
-                    ):
-                        date = " ".join(parts[i:i+3])
-                        studio = " ".join(parts[:i]) if i > 0 else None
-                        rest = parts[i+3:]
-                        if rest:
-                            stars_and_scene = " ".join(rest)
-                        break
-                    # Check for YYYY only
-                    elif re.match(r"\d{4}", parts[i]):
-                        date = parts[i]
-                        studio = " ".join(parts[:i]) if i > 0 else None
-                        rest = parts[i+1:]
-                        if rest:
-                            stars_and_scene = " ".join(rest)
-                        break
-
-                if not date and parts:
-                    studio = parts[0]
-                    rest = parts[1:]
-                    if rest:
-                        stars_and_scene = " ".join(rest)
-                # Build new caption with emojis
-                new_caption = ""
-                if studio:
-                    new_caption += f"🏢 <b>Studio:</b> {studio}\n"
-                if date:
-                    new_caption += f"📅 <b>Date:</b> {date}\n"
-                if stars_and_scene:
-                    new_caption += f"⭐🎬 <b>Stars & Scene:</b> {stars_and_scene}\n"
-
                 await safe_api_call(
-                    bot.send_photo(
+                    bot.send_photo( 
                         UPDATE_CHANNEL2_ID,
                         photo=pic_url,
-                        caption=new_caption.strip(),
+                        caption=caption,
                         parse_mode=enums.ParseMode.HTML,
                     )
                 )

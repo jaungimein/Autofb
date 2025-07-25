@@ -257,21 +257,36 @@ async def restore_imgbb_photos(bot, start_id=None):
                 # Extract fields from caption
                 studio = date = stars_and_scene = None
                 parts = caption.split()
-                date_pattern = r"\b(\d{2}[ .]\d{2}[ .]\d{2}|\d{4}[ .]\d{2}[ .]\d{2}|\d{4})\b"
-                for i, part in enumerate(parts):
-                    if re.match(date_pattern, part):
-                        date = part
+                date = None
+                studio = None
+                stars_and_scene = None                
+                # Try to find date in formats: YYYY MM DD, YY MM DD, YYYY
+                for i in range(len(parts)):
+                    # Check for YYYY MM DD or YY MM DD
+                    if i + 2 < len(parts) and (
+                        (re.match(r"\d{4}", parts[i]) and re.match(r"\d{2}", parts[i+1]) and re.match(r"\d{2}", parts[i+2])) or
+                        (re.match(r"\d{2}", parts[i]) and re.match(r"\d{2}", parts[i+1]) and re.match(r"\d{2}", parts[i+2]))
+                    ):
+                        date = " ".join(parts[i:i+3])
+                        studio = " ".join(parts[:i]) if i > 0 else None
+                        rest = parts[i+3:]
+                        if rest:
+                            stars_and_scene = " ".join(rest)
+                        break
+                    # Check for YYYY only
+                    elif re.match(r"\d{4}", parts[i]):
+                        date = parts[i]
                         studio = " ".join(parts[:i]) if i > 0 else None
                         rest = parts[i+1:]
                         if rest:
                             stars_and_scene = " ".join(rest)
                         break
+
                 if not date and parts:
                     studio = parts[0]
                     rest = parts[1:]
                     if rest:
                         stars_and_scene = " ".join(rest)
-
                 # Build new caption with emojis
                 new_caption = ""
                 if studio:

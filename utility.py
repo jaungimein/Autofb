@@ -257,7 +257,7 @@ async def restore_imgbb_photos(bot, start_id=None):
                 # Extract fields from caption
                 studio = date = stars_and_scene = None
                 parts = caption.split()
-                date_pattern = r"\b(\d{2}\.\d{2}\.\d{2}|\d{4}\.\d{2}\.\d{2}|\d{4})\b"
+                date_pattern = r"\b(\d{2}[ .]\d{2}[ .]\d{2}|\d{4}[ .]\d{2}[ .]\d{2}|\d{4})\b"
                 for i, part in enumerate(parts):
                     if re.match(date_pattern, part):
                         date = part

@@ -617,7 +617,32 @@ async def imgbb_upload_reply_url_handler(client, message):
                 "caption": caption,
             }
             imgbb_col.insert_one(pic_doc)
-            await bot.send_photo(UPDATE_CHANNEL2_ID, f"{pic.url}", caption=f"<b>{caption}</b>")
+            parts = caption.split()
+            date_pattern = r"\b(\d{2} \d{2} \d{2}|\d{4} \d{2} \d{2}|\d{4})\b"
+            studio = date = stars_and_scene = None
+            for i, part in enumerate(parts):
+                if re.match(date_pattern, part):
+                    date = part
+                    studio = " ".join(parts[:i]) if i > 0 else None
+                    rest = parts[i+1:]
+                    if rest:
+                        stars_and_scene = " ".join(rest)
+                    break
+            if not date and parts:
+                studio = parts[0]
+                rest = parts[1:]
+                if rest:
+                    stars_and_scene = " ".join(rest)
+
+            new_caption = ""
+            if studio:
+                new_caption += f"🏢 <b>Studio:</b> {studio}\n"
+            if date:
+                new_caption += f"📅 <b>Date:</b> {date}\n"
+            if stars_and_scene:
+                new_caption += f"⭐🎬 <b>Stars & Scene:</b> {stars_and_scene}\n"
+            await bot.send_photo(UPDATE_CHANNEL2_ID, f"{pic.url}", caption=new_caption.strip(), parse_mode=enums.ParseMode.HTML)
+
         except Exception as e:
             reply = await message.reply_text(f"❌ Failed to upload image to imgbb: {e}")
         finally:
@@ -629,8 +654,7 @@ async def imgbb_upload_reply_url_handler(client, message):
         await message.delete()
     except Exception as e:
         await message.reply_text(f"⚠️ An unexpected error occurred: {e}")
-
-
+        
 
 @bot.on_message(filters.private & filters.text & ~filters.command([
     "start", "stats", "add", "rm", "broadcast", "log", "tmdb", "ib", "restore", "index", "del", "restart", "chatop"

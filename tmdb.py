@@ -112,7 +112,7 @@ def get_tv_imdb_id_sync(tv_id):
 
 async def get_by_id(tmdb_type, tmdb_id):
     api_url = f"https://api.themoviedb.org/3/{tmdb_type}/{tmdb_id}?api_key={TMDB_API_KEY}&language=en-US"
-    image_url = f'https://api.themoviedb.org/3/{tmdb_type}/{tmdb_id}/images?api_key={TMDB_API_KEY}&language=en-US&include_image_language=en'
+    image_url = f'https://api.themoviedb.org/3/{tmdb_type}/{tmdb_id}/images?api_key={TMDB_API_KEY}&language=en-US&include_image_language=en,hi'
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(api_url) as detail_response:

@@ -256,11 +256,38 @@ async def restore_imgbb_photos(bot, start_id=None):
             await asyncio.sleep(3) 
             # Avoid hitting API limits
             if pic_url:
+                # Extract fields from caption
+                studio = date = stars_and_scene = None
+                parts = caption.split()
+                date_pattern = r"\b(\d{2}\.\d{2}\.\d{2}|\d{4}\.\d{2}\.\d{2}|\d{4})\b"
+                for i, part in enumerate(parts):
+                    if re.match(date_pattern, part):
+                        date = part
+                        studio = " ".join(parts[:i]) if i > 0 else None
+                        rest = parts[i+1:]
+                        if rest:
+                            stars_and_scene = " ".join(rest)
+                        break
+                if not date and parts:
+                    studio = parts[0]
+                    rest = parts[1:]
+                    if rest:
+                        stars_and_scene = " ".join(rest)
+
+                # Build new caption with emojis
+                new_caption = ""
+                if studio:
+                    new_caption += f"🏢 <b>Studio:</b> {studio}\n"
+                if date:
+                    new_caption += f"📅 <b>Date:</b> {date}\n"
+                if stars_and_scene:
+                    new_caption += f"⭐🎬 <b>Stars & Scene:</b> {stars_and_scene}\n"
+
                 await safe_api_call(
-                    bot.send_photo( 
+                    bot.send_photo(
                         UPDATE_CHANNEL2_ID,
                         photo=pic_url,
-                        caption=caption,
+                        caption=new_caption.strip(),
                         parse_mode=enums.ParseMode.HTML,
                     )
                 )

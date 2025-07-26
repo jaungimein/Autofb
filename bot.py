@@ -225,8 +225,7 @@ async def start_handler(client, message):
                 reply_msg = await safe_api_call(
                     message.reply_text(
                     f"<b>Welcome, {user_name}!</b>\n\n"
-                    f"<b>Just send me any movie or show name to search instantly.</b>\n\n"
-                    f"<b>Example:</b> <code>Batman</code>\n\n"
+                    f"<b>Just send your search query and get instant answers</b>\n\n"
                     f"<b>Need help?</b> Contact: {SUPPORT}",
                     reply_markup=InlineKeyboardMarkup(
                         [
@@ -761,9 +760,7 @@ async def delete_service_messages(client, message):
             for user in message.new_chat_members:
                 try:
                     reply = await message.reply_text(
-                        f"<b>Welcome, {user.first_name}!</b>\n"
-                        f"<b>Find any file instantly.</b>\n"
-                        f"DM <b>@{BOT_USERNAME}</b> and just send the movie or show name to search.",
+                        f"<b>Welcome, {user.first_name}!</b>\n",
                         parse_mode=enums.ParseMode.HTML,
                         reply_markup=InlineKeyboardMarkup(
                             [

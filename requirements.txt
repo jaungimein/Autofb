@@ -8,5 +8,4 @@ requests
 git+https://github.com/cinemagoer/cinemagoer
 aiohttp
 parse-torrent-title
-imgbbpy
 mutagen

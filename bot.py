@@ -24,15 +24,14 @@ from utility import (
     auto_delete_message, human_readable_size,
     queue_file_for_processing, file_queue_worker,
     file_queue, extract_tmdb_link, periodic_expiry_cleanup,
-    restore_tmdb_photos, restore_imgbb_photos 
+    restore_tmdb_photos 
 )
 from db import (db, users_col, 
                 tokens_col, 
                 files_col, 
                 allowed_channels_col, 
                 auth_users_col,
-                tmdb_col,
-                imgbb_col
+                tmdb_col
                 )
 
 from fast_api import api
@@ -335,7 +334,7 @@ async def delete_command(client, message):
         args = message.text.split(maxsplit=2)
         reply = None
         if len(args) < 3:
-            reply = await message.reply_text("Usage: /del <file|tmdb|imgbb> <link>")
+            reply = await message.reply_text("Usage: /del <file|tmdb> <link>")
             return
         delete_type = args[1].strip().lower()
         user_input = args[2].strip()
@@ -367,14 +366,8 @@ async def delete_command(client, message):
                 reply = await message.reply_text(f"Database record deleted {tmdb_type}/{tmdb_id}.")
             else:
                 reply = await message.reply_text(f"No TMDB record found with ID {tmdb_type}/{tmdb_id} in the database.")
-        elif delete_type == "imgbb":
-            result = imgbb_col.delete_one({"caption": user_input})
-            if result.deleted_count > 0:
-                reply = await message.reply_text(f"Database record deleted : {user_input}")
-            else:
-                reply = await message.reply_text(f"No record found with: {user_input}")
         else:
-            reply = await message.reply_text("Invalid delete type. Use 'file' or 'tmdb' or 'imgbb'.")
+            reply = await message.reply_text("Invalid delete type. Use 'file' or 'tmdb'.")
         if reply:
             bot.loop.create_task(auto_delete_message(message, reply))
     except Exception as e:
@@ -400,7 +393,7 @@ async def update_info(client, message):
     try:
         args = message.text.split()
         if len(args) < 2:
-            await message.reply_text("Usage: /restore tmdb|imgbb [start_objectid]")
+            await message.reply_text("Usage: /restore tmdb [start_objectid]")
             return
         restore_type = args[1].strip()
         start_id = args[2] if len(args) > 2 else None
@@ -412,8 +405,6 @@ async def update_info(client, message):
                 return
         if restore_type == "tmdb":
             await restore_tmdb_photos(bot, start_id)
-        elif restore_type == "imgbb":
-            await restore_imgbb_photos(bot, start_id)
         else:
             await message.reply_text("Invalid restore type. Use 'tmdb'.")
     except Exception as e:
@@ -591,46 +582,9 @@ async def tmdb_command(client, message):
         await safe_api_call(message.reply_text(f"Error in tmdb command: {e}"))
     await message.delete()
 
-@bot.on_message(filters.command("ib") & filters.private & filters.reply & filters.user(OWNER_ID))
-async def imgbb_upload_reply_url_handler(client, message):
-    # User replies to a message containing the URL and sends: /imgbb <caption>
-    try:
-        reply = None
-        if not message.reply_to_message or not message.reply_to_message.text:
-            reply = await message.reply_text("❌ Please reply to a message containing the image URL and provide the caption with the command.")
-            return
-        
-        image_url = message.reply_to_message.text.strip()
-        caption = message.text.split(maxsplit=1)[1] if len(message.text.split(maxsplit=1)) > 1 else ""
-        caption_cleaned = caption.replace('.', ' ')
-        caption_cleaned = re.sub(r'[\(\)\[\]\-]', '', caption_cleaned)
-        caption = caption_cleaned.strip()
-        if not caption:
-            reply = await message.reply_text("❌ Please provide a caption with the command. Usage: /ib <caption>")
-            return
-        imgbb_client = imgbbpy.AsyncClient(IMGBB_API_KEY)
-        try:
-            pic = await imgbb_client.upload(url=image_url, name=f"{caption}")
-            pic_doc = {
-                "pic_url": pic.url,
-                "caption": caption,
-            }
-            imgbb_col.insert_one(pic_doc)
-            await bot.send_photo(UPDATE_CHANNEL2_ID, f"{pic.url}", caption=f"{caption}")
-        except Exception as e:
-            reply = await message.reply_text(f"❌ Failed to upload image to imgbb: {e}")
-        finally:
-            await imgbb_client.close()
-        if reply:
-            bot.loop.create_task(auto_delete_message(message.reply_to_message, reply))
-        else:
-            await message.reply_to_message.delete()
-        await message.delete()
-    except Exception as e:
-        await message.reply_text(f"⚠️ An unexpected error occurred: {e}")        
 
 @bot.on_message(filters.private & filters.text & ~filters.command([
-    "start", "stats", "add", "rm", "broadcast", "log", "tmdb", "ib", "restore", "index", "del", "restart", "chatop"
+    "start", "stats", "add", "rm", "broadcast", "log", "tmdb", "restore", "index", "del", "restart", "chatop"
 ]))
 async def instant_search_handler(client, message):
     reply = None
@@ -842,14 +796,10 @@ async def main():
     Starts the bot and FastAPI server.
     """
     # Set bot commands
-
-
     await bot.start()
-
     await bot.set_bot_commands([
         BotCommand("start", "check bot status"),
-        BotCommand("stats", "(admin only) Show bot stats"),
-        BotCommand("ib", "(admin only)"),
+        BotCommand("stats", "(admin only) Show bot stats")
     ])
     
     bot.loop.create_task(start_fastapi())

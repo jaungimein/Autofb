@@ -2,7 +2,6 @@
 # Imports
 # =========================
 import asyncio
-import imgbbpy
 import base64
 from bson import ObjectId
 import os

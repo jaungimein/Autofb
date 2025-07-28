@@ -330,25 +330,40 @@ async def index_channel_files(client, message):
 @bot.on_message(filters.private & filters.command("del") & filters.user(OWNER_ID))
 async def delete_command(client, message):
     try:
-        args = message.text.split(maxsplit=2)
+        args = message.text.split(maxsplit=3)
         reply = None
         if len(args) < 3:
-            reply = await message.reply_text("Usage: /del <file|tmdb> <link>")
+            reply = await message.reply_text("Usage: /del <file|tmdb> <link> [end_link]")
             return
         delete_type = args[1].strip().lower()
         user_input = args[2].strip()
+        end_input = args[3].strip() if len(args) > 3 else None
+
         if delete_type == "file":
             try:
                 channel_id, msg_id = extract_channel_and_msg_id(user_input)
+                if end_input:
+                    end_channel_id, end_msg_id = extract_channel_and_msg_id(end_input)
+                    if channel_id != end_channel_id:
+                        await message.reply_text("Start and end links must be from the same channel.")
+                        return
+                    if msg_id > end_msg_id:
+                        msg_id, end_msg_id = end_msg_id, msg_id
+                    # Delete in range
+                    result = files_col.delete_many({
+                        "channel_id": channel_id,
+                        "message_id": {"$gte": msg_id, "$lte": end_msg_id}
+                    })
+                    reply = await message.reply_text(f"Deleted {result.deleted_count} files from {msg_id} to {end_msg_id} in channel {channel_id}.")
+                    return
             except Exception as e:
                 await message.reply_text(f"Error: {e}")
                 return
-            # Try to find by channel_id and message_id (not msg_id)
+            # Single file delete
             file_doc = files_col.find_one({"channel_id": channel_id, "message_id": msg_id})
             if not file_doc:
                 reply = await message.reply_text("No file found with that link in the database.")
                 return
-            # Use the same keys for deletion as for finding
             result = files_col.delete_one({"channel_id": channel_id, "message_id": msg_id})
             if result.deleted_count > 0:
                 reply = await message.reply_text(f"Database record deleted. File name: {file_doc.get('file_name')}\n({user_input})")

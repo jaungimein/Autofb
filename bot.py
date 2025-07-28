@@ -750,9 +750,7 @@ async def group_auto_reply_and_delete(client, message):
         user = message.from_user
         user_name = user.first_name if user else "User"
         reply = await message.reply_text(
-            f"<b>Welcome, {user_name}!</b>\n"
-            f"<b>Find any file instantly.</b>\n"
-            f"DM <b>@{BOT_USERNAME}</b> and just send the movie or show name to search.",
+            f"<b>Welcome, {user_name}!</b>\n",
             parse_mode=enums.ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup(
                 [

@@ -665,8 +665,11 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
 
     if not files:
         await callback_query.edit_message_text(
-            f"No files found for <b>{query}</b> in <b>{channel_name}</b>.",
-            parse_mode=enums.ParseMode.HTML
+            f"🔍 <b>Search:</b> <code>{query}</code>\n"
+            f"❌ <b>No files found</b> in <b>{channel_name}</b>.\n\n"
+            f"📝 <i>Tip: Double-check your spelling or try searching the title on <a href='https://www.google.com/search?q={quote_plus(query)}'>Google</a>.</i>",
+            parse_mode=enums.ParseMode.HTML,
+            disable_web_page_preview=True
         )
         # Send to log channel with the query and user id
         user_id = callback_query.from_user.id

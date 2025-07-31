@@ -385,12 +385,7 @@ async def file_queue_worker(bot):
                             result = await get_tv_by_name(title, year)
                         else:
                             result = await get_movie_by_name(title, year)
-                        tmdb_id, tmdb_type = result['id'], result['media_type']
-                        file_info["tmdb_id"] = tmdb_id
-                        file_info["tmdb_type"] = tmdb_type
-
-                        upsert_file_info(file_info)
-                        
+                        tmdb_id, tmdb_type = result['id'], result['media_type']                        
                         exists = tmdb_col.find_one({"tmdb_id": tmdb_id, "tmdb_type": tmdb_type})
                         if not exists:
                             results = await get_by_id(tmdb_type, tmdb_id)

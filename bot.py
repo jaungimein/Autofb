@@ -114,7 +114,8 @@ def build_search_pipeline(query, allowed_ids, skip, limit):
             "score": {"$meta": "searchScore"}
         }
     }
-    sort_stage = {"$sort": {"score": -1}}
+    sort_stage = {"$sort": {"score": -1, "file_name": 1}}
+
     facet_stage = {
         "$facet": {
             "results": [
@@ -595,56 +596,6 @@ async def tmdb_command(client, message):
         logging.exception("Error in tmdb_command")
         await safe_api_call(message.reply_text(f"Error in tmdb command: {e}"))
     await message.delete()
-
-@bot.on_message(filters.command("file") & filters.private)
-async def add_tmdb_to_files(client, message: Message):
-    """
-    Usage: /file <start_link> <end_link>
-    Example: /file https://t.me/c/12345/100 https://t.me/c/12345/105
-    """
-    args = message.text.split()
-    if len(args) != 3:
-        await message.reply("Usage: /file <start_link> <end_link>")
-        return
-
-    start_link, end_link = args[1], args[2]
-    try:
-        start_channel_id, start_msg_id = extract_channel_and_msg_id(start_link)
-        end_channel_id, end_msg_id = extract_channel_and_msg_id(end_link)
-    except Exception as e:
-        await message.reply(f"Invalid Telegram link: {e}")
-        return
-
-    await message.reply("Please send the TMDB link (movie or tv):")
-    try:
-        tmdb_msg = await client.listen(message.chat.id, timeout=60)
-    except asyncio.TimeoutError:
-        await message.reply("Timeout: No TMDB link received.")
-        return
-
-    tmdb_url = tmdb_msg.text.strip()
-    try:
-        tmdb_type, tmdb_id = await extract_tmdb_link(tmdb_url)
-    except Exception:
-        await message.reply("Invalid TMDB link.")
-        return
-
-    updated = 0
-    for msg_id in range(start_msg_id, end_msg_id + 1):
-        try:
-            msg = await bot.get_messages(start_channel_id, msg_id)
-            file_info = extract_file_info(msg, channel_id=start_channel_id)
-            if not file_info.get("file_name"):
-                continue
-            file_info["tmdb_id"] = tmdb_id
-            file_info["tmdb_type"] = tmdb_type
-            upsert_file_info(file_info)
-            updated += 1
-        except Exception as e:
-            continue
-
-    await message.reply(f"Updated {updated} files with TMDB info.")
-
 
 @bot.on_message(filters.private & filters.text & ~filters.command([
     "start", "stats", "add", "rm", "broadcast", "log", "tmdb", "restore", "index", "del", "restart", "chatop"

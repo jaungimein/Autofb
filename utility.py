@@ -353,17 +353,17 @@ async def file_queue_worker(bot):
                     "channel_id": file_info["channel_id"],
                     "file_name": file_info["file_name"]
                 })
-            if existing:
-                telegram_link = generate_c_link(file_info["channel_id"], file_info["message_id"])
-                if reply_func:
-                    if duplicate:
-                        await safe_api_call(
-                            bot.send_message(
-                                LOG_CHANNEL_ID,
-                                f"⚠️ Duplicate File.\nLink: {telegram_link}",
-                                parse_mode=enums.ParseMode.HTML
+                if existing:
+                    telegram_link = generate_c_link(file_info["channel_id"], file_info["message_id"])
+                    if reply_func:
+                        if duplicate:
+                            await safe_api_call(
+                                bot.send_message(
+                                    LOG_CHANNEL_ID,
+                                    f"⚠️ Duplicate File.\nLink: {telegram_link}",
+                                    parse_mode=enums.ParseMode.HTML
+                                )
                             )
-                        )
             else:
                 upsert_file_info(file_info)
                 if message.audio:

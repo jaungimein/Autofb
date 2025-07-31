@@ -148,7 +148,7 @@ async def search_files(
     """
     Search files_col for file_name using MongoDB Atlas Search (punctuation-insensitive, typo-tolerant).
     For each result, fetch TMDB details and return in the same format as /tmdb/all/.
-    Paginate results (10 per page). Results are deduplicated by (tmdb_id, tmdb_type).
+    Paginate results (10 per page). Results are deduplicated by (tmdb_id, tmdb_type) and sorted by search score.
     """
     cache_key = ("files_search_atlas", query.lower(), page)
     now = time.time()
@@ -157,7 +157,7 @@ async def search_files(
         if now - ts < 300:
             return data
 
-    # Main pipeline for paginated, deduplicated results
+    # Main pipeline for paginated, deduplicated, and score-sorted results
     pipeline = [
         {
             "$search": {
@@ -169,15 +169,26 @@ async def search_files(
             }
         },
         {
+            "$project": {
+                "tmdb_id": 1,
+                "tmdb_type": 1,
+                "score": {"$meta": "searchScore"}
+            }
+        },
+        {
             "$group": {
                 "_id": {"tmdb_id": "$tmdb_id", "tmdb_type": "$tmdb_type"},
                 "tmdb_id": {"$first": "$tmdb_id"},
-                "tmdb_type": {"$first": "$tmdb_type"}
+                "tmdb_type": {"$first": "$tmdb_type"},
+                "score": {"$max": "$score"}
             }
+        },
+        {
+            "$sort": {"score": -1}
         },
         {"$skip": (page - 1) * 10},
         {"$limit": 10},
-        {"$project": {"_id": 0, "tmdb_id": 1, "tmdb_type": 1}}
+        {"$project": {"_id": 0, "tmdb_id": 1, "tmdb_type": 1, "score": 1}}
     ]
 
     # Pipeline to count total unique (tmdb_id, tmdb_type) matches

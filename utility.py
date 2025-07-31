@@ -348,22 +348,22 @@ async def file_queue_worker(bot):
             last_reply_func = reply_func
         try:
             # Check for duplicate by file name in this channel
-            if duplicate:
-                existing = files_col.find_one({
-                    "channel_id": file_info["channel_id"],
-                    "file_name": file_info["file_name"]
-                })
-                if existing:
-                    telegram_link = generate_c_link(file_info["channel_id"], file_info["message_id"])
-                    if reply_func:
-                        if duplicate:
-                            await safe_api_call(
-                                bot.send_message(
-                                    LOG_CHANNEL_ID,
-                                    f"⚠️ Duplicate File.\nLink: {telegram_link}",
-                                    parse_mode=enums.ParseMode.HTML
-                                )
+            existing = files_col.find_one({
+                "channel_id": file_info["channel_id"],
+                "file_name": file_info["file_name"]
+            })
+            
+            if existing:
+                telegram_link = generate_c_link(file_info["channel_id"], file_info["message_id"])
+                if reply_func:
+                    if duplicate:
+                        await safe_api_call(
+                            bot.send_message(
+                                LOG_CHANNEL_ID,
+                                f"⚠️ Duplicate File.\nLink: {telegram_link}",
+                                parse_mode=enums.ParseMode.HTML
                             )
+                        )
             else:
                 upsert_file_info(file_info)
                 if message.audio:

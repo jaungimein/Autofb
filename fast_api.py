@@ -148,7 +148,7 @@ async def search_files(
     """
     Search files_col for file_name using MongoDB Atlas Search (punctuation-insensitive, typo-tolerant).
     For each result, fetch TMDB details and return in the same format as /tmdb/all/.
-    Paginate results (10 per page).
+    Paginate results (10 per page). Results are deduplicated by (tmdb_id, tmdb_type).
     """
     cache_key = ("files_search_atlas", query.lower(), page)
     now = time.time()
@@ -157,14 +157,22 @@ async def search_files(
         if now - ts < 300:
             return data
 
+    # Main pipeline for paginated, deduplicated results
     pipeline = [
         {
             "$search": {
-                "index": "default",  # or your Atlas Search index name
+                "index": "default",
                 "text": {
                     "query": query,
                     "path": "file_name"
                 }
+            }
+        },
+        {
+            "$group": {
+                "_id": {"tmdb_id": "$tmdb_id", "tmdb_type": "$tmdb_type"},
+                "tmdb_id": {"$first": "$tmdb_id"},
+                "tmdb_type": {"$first": "$tmdb_type"}
             }
         },
         {"$skip": (page - 1) * 10},
@@ -172,8 +180,28 @@ async def search_files(
         {"$project": {"_id": 0, "tmdb_id": 1, "tmdb_type": 1}}
     ]
 
+    # Pipeline to count total unique (tmdb_id, tmdb_type) matches
+    count_pipeline = [
+        {
+            "$search": {
+                "index": "default",
+                "text": {
+                    "query": query,
+                    "path": "file_name"
+                }
+            }
+        },
+        {
+            "$group": {
+                "_id": {"tmdb_id": "$tmdb_id", "tmdb_type": "$tmdb_type"}
+            }
+        },
+        {"$count": "total"}
+    ]
+
     docs = list(files_col.aggregate(pipeline))
-    total = files_col.count_documents({})  # Atlas Search does not return total, so this is an approximation
+    count_result = list(files_col.aggregate(count_pipeline))
+    total = count_result[0]["total"] if count_result else 0
 
     results = []
     async with httpx.AsyncClient() as client:
@@ -203,7 +231,7 @@ async def search_files(
 
     paginated = {
         "page": page,
-        "total": total,  # You may want to improve this with $count in a separate pipeline if needed
+        "total": total,  # Accurate unique TMDB entries count
         "results": results
     }
     tmdb_cache[cache_key] = (now, paginated)

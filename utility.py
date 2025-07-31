@@ -145,7 +145,7 @@ def generate_telegram_link(bot_username, channel_id, message_id):
     """Generate a base64-encoded Telegram deep link for a file."""
     raw = f"{channel_id}_{message_id}".encode()
     b64 = base64.urlsafe_b64encode(raw).decode().rstrip("=")
-    return f"https://telegram.dog/{bot_username}?start=file_{b64}"
+    return f"https://telegram.dog/{bot_username}?start=file_{b64}" 
 
 def generate_c_link(channel_id, message_id):
     # channel_id must be like -1001234567890
@@ -348,10 +348,11 @@ async def file_queue_worker(bot):
             last_reply_func = reply_func
         try:
             # Check for duplicate by file name in this channel
-            existing = files_col.find_one({
-                "channel_id": file_info["channel_id"],
-                "file_name": file_info["file_name"]
-            })
+            if duplicate:
+                existing = files_col.find_one({
+                    "channel_id": file_info["channel_id"],
+                    "file_name": file_info["file_name"]
+                })
             if existing:
                 telegram_link = generate_c_link(file_info["channel_id"], file_info["message_id"])
                 if reply_func:
@@ -385,6 +386,11 @@ async def file_queue_worker(bot):
                         else:
                             result = await get_movie_by_name(title, year)
                         tmdb_id, tmdb_type = result['id'], result['media_type']
+                        file_info["tmdb_id"] = tmdb_id
+                        file_info["tmdb_type"] = tmdb_type
+
+                        upsert_file_info(file_info)
+                        
                         exists = tmdb_col.find_one({"tmdb_id": tmdb_id, "tmdb_type": tmdb_type})
                         if not exists:
                             results = await get_by_id(tmdb_type, tmdb_id)

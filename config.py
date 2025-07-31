@@ -15,6 +15,8 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 logger = logging.getLogger("sharing_bot")
 
 CONFIG_FILE_URL = environ.get('CONFIG_FILE_URL')

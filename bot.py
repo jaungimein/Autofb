@@ -72,24 +72,40 @@ def encode_file_link(channel_id, message_id):
     return base64.urlsafe_b64encode(raw).decode().rstrip("=")
 
 def sanitize_query(query):
-    # Remove excessive whitespace and limit length
-    return re.sub(r"\s+", " ", query.strip())[:100]
+    """Sanitizes and normalizes a search query for consistent matching of 'and' and '&'."""
+    query = query.strip().lower()
+    # Replace all '&' with 'and'
+    query = re.sub(r"\s*&\s*", " and ", query)
+    # Replace multiple spaces and limit length
+    query = re.sub(r"\s+", " ", query)
+    return query[:100]
 
 def contains_url(text):
     url_pattern = r'https?://\S+|www\.\S+'
     return re.search(url_pattern, text) is not None
 
 def build_search_pipeline(query, allowed_ids, skip, limit):
-    
-    search_stage = {
-        "$search": {
-            "index": "default",
-            "text": {
-                "query": query,
-                "path": "file_name"
+    # If the query contains any space, treat it as a phrase search
+    if " " in query.strip():
+        search_stage = {
+            "$search": {
+                "index": "default",
+                "phrase": {
+                    "query": query,
+                    "path": "file_name"
+                }
             }
         }
-    }
+    else:
+        search_stage = {
+            "$search": {
+                "index": "default",
+                "text": {
+                    "query": query,
+                    "path": "file_name"
+                }
+            }
+        }
 
     match_stage = {"$match": {"channel_id": {"$in": allowed_ids}}}
     project_stage = {
@@ -679,7 +695,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     for f in files:
         file_link = encode_file_link(f["channel_id"], f["message_id"])
         size_str = human_readable_size(f.get('file_size', 0))
-        btn_text = f"{size_str} | {f.get('file_name')}"
+        btn_text = f"{size_str}➤{f.get('file_name')}"
         buttons.append([
             InlineKeyboardButton(btn_text, url=f"https://t.me/{BOT_USERNAME}?start=file_{file_link}")
         ])

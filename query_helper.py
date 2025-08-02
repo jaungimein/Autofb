@@ -5,7 +5,7 @@ import time
 
 # In-memory mapping: query_id (str) -> (query, timestamp)
 query_id_map = {}
-QUERY_ID_TTL = 3600  # seconds (1 hour)
+QUERY_ID_TTL = 5 * 60
 
 def generate_query_id(length=8):
     """Generate a short random string for query IDs."""

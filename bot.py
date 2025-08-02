@@ -85,7 +85,7 @@ def contains_url(text):
     return re.search(url_pattern, text) is not None
 
 def build_search_pipeline(query, allowed_ids, skip, limit):
-    
+
     search_stage = {
         "$search": {
             "index": "default",
@@ -109,7 +109,7 @@ def build_search_pipeline(query, allowed_ids, skip, limit):
             "score": {"$meta": "searchScore"}
         }
     }
-    sort_stage = {"$sort": {"file_name": 1, "score": -1}}
+    sort_stage = {"$sort": {"score": -1}}
 
     facet_stage = {
         "$facet": {

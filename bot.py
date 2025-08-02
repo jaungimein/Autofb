@@ -48,6 +48,7 @@ TOKEN_VALIDITY_SECONDS = 24 * 60 * 60  # 24 hours token validity
 MAX_FILES_PER_SESSION = 10             # Max files a user can access per session
 PAGE_SIZE = 10  # Number of files per page
 SEARCH_PAGE_SIZE = 10  # You can adjust this
+SAFE_QUERY_LEN = 40 
 
 # Initialize Pyrogram bot client
 bot = Client(
@@ -630,7 +631,8 @@ async def instant_search_handler(client, message):
         for c in channels:
             chan_id = c["channel_id"]
             chan_name = c.get("channel_name", str(chan_id))
-            data = f"search_channel:{quote_plus(query)}:{chan_id}:1"
+            safe_query = truncate_utf8(query, SAFE_QUERY_LEN)
+            data = f"search_channel:{quote_plus(safe_query)}:{chan_id}:1"
             # Callback data includes query and channel_id, page=1
             buttons.append([
                 InlineKeyboardButton(
@@ -707,20 +709,18 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
 
     # Pagination controls
     page_buttons = []
-    SAFE_QUERY_LEN = 40 
-    short_query = truncate_utf8(query, SAFE_QUERY_LEN)
     if page > 1:
         page_buttons.append(
             InlineKeyboardButton(
                 "⬅️ Prev",
-                callback_data=f"search_channel:{quote_plus(short_query)}:{channel_id}:{page-1}"
+                callback_data=f"search_channel:{quote_plus(query)}:{channel_id}:{page-1}"
             )
         )
     if page < total_pages:
         page_buttons.append(
             InlineKeyboardButton(
                 "➡️ Next",
-                callback_data=f"search_channel:{quote_plus(short_query)}:{channel_id}:{page+1}"
+                callback_data=f"search_channel:{quote_plus(query)}:{channel_id}:{page+1}"
             )
         )
 

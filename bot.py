@@ -23,7 +23,7 @@ from utility import (
     auto_delete_message, human_readable_size,
     queue_file_for_processing, file_queue_worker,
     file_queue, extract_tmdb_link, periodic_expiry_cleanup,
-    restore_tmdb_photos
+    restore_tmdb_photos, make_safe_callback_data
 )
 from db import (db, users_col, 
                 tokens_col, 
@@ -48,7 +48,6 @@ TOKEN_VALIDITY_SECONDS = 24 * 60 * 60  # 24 hours token validity
 MAX_FILES_PER_SESSION = 10             # Max files a user can access per session
 PAGE_SIZE = 10  # Number of files per page
 SEARCH_PAGE_SIZE = 10  # You can adjust this
-SAFE_QUERY_LEN = 40 
 
 # Initialize Pyrogram bot client
 bot = Client(
@@ -631,8 +630,7 @@ async def instant_search_handler(client, message):
         for c in channels:
             chan_id = c["channel_id"]
             chan_name = c.get("channel_name", str(chan_id))
-            safe_query = truncate_utf8(query, SAFE_QUERY_LEN)
-            data = f"search_channel:{quote_plus(safe_query)}:{chan_id}:1"
+            data = make_safe_callback_data(query, chan_id, 1)
             # Callback data includes query and channel_id, page=1
             buttons.append([
                 InlineKeyboardButton(
@@ -709,20 +707,21 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
 
     # Pagination controls
     page_buttons = []
-    safe_query = truncate_utf8(query, SAFE_QUERY_LEN)
 
     if page > 1:
+        prev_data = make_safe_callback_data(query, channel_id, page-1)
         page_buttons.append(
             InlineKeyboardButton(
                 "⬅️ Prev",
-                callback_data=f"search_channel:{quote_plus(safe_query)}:{channel_id}:{page-1}"
+                callback_data=prev_data
             )
         )
     if page < total_pages:
+        next_data = make_safe_callback_data(query, channel_id, page+1)
         page_buttons.append(
             InlineKeyboardButton(
                 "➡️ Next",
-                callback_data=f"search_channel:{quote_plus(safe_query)}:{channel_id}:{page+1}"
+                callback_data=next_data
             )
         )
 

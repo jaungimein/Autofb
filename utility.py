@@ -24,6 +24,7 @@ from mutagen.flac import FLAC
 from mutagen.mp4 import MP4
 from mutagen.id3 import ID3, APIC
 from mutagen import File as MutagenFile
+from urllib.parse import quote_plus
 
 # =========================
 # Constants & Globals
@@ -60,6 +61,20 @@ def set_cached_search(query, page, channel_id, files, total_files):
 def invalidate_search_cache():
     search_cache.clear()
 
+def make_safe_callback_data(query, channel_id, page, max_bytes=64):
+    prefix = "search_channel:"
+    suffix = f":{channel_id}:{page}"
+    max_query_bytes = max_bytes - len(f"{prefix}{suffix}".encode("utf-8"))
+
+    # Try all possible lengths for the query (from longer to shorter)
+    for qlen in range(len(query), -1, -1):
+        candidate_query = query[:qlen]
+        encoded_query = quote_plus(candidate_query)
+        data = f"{prefix}{encoded_query}{suffix}"
+        if len(data.encode("utf-8")) <= max_bytes:
+            return data
+    # If even an empty query doesn't fit, fallback to minimal data
+    return f"{prefix}{suffix}"
 
 # =========================
 # Channel & User Utilities

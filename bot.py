@@ -85,25 +85,15 @@ def contains_url(text):
     return re.search(url_pattern, text) is not None
 
 def build_search_pipeline(query, allowed_ids, skip, limit):
-    # Prepare a compound search that tries to match phrase first, then text
+    # Split the query into words and use "and" operator so all must be present
+    words = [w for w in query.strip().split() if w]
     search_stage = {
         "$search": {
             "index": "default",
-            "compound": {
-                "should": [
-                    {
-                        "phrase": {
-                            "query": query,
-                            "path": "file_name"
-                        }
-                    },
-                    {
-                        "text": {
-                            "query": query,
-                            "path": "file_name"
-                        }
-                    }
-                ]
+            "text": {
+                "query": words,
+                "path": "file_name",
+                "operator": "and"
             }
         }
     }

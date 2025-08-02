@@ -120,7 +120,7 @@ def build_search_pipeline(query, allowed_ids, skip, limit):
             "score": {"$meta": "searchScore"}
         }
     }
-    sort_stage = {"$sort": {"score": -1, "file_name": 1}}
+    sort_stage = {"$sort": {"file_name": 1, "score": -1}}
 
     facet_stage = {
         "$facet": {
@@ -671,7 +671,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
 
     if not files:
         await callback_query.edit_message_text(
-            f"🔍 <b>Search:</b> <code>{query}</code>\n"
+            f"🔍 <b>Query:</b> <code>{query}</code>\n"
             f"❌ <b>No files found</b> in <b>{channel_name}</b>.\n\n"
             f"📝 <i>Tip: Double-check your spelling or try searching the title on <a href='https://www.google.com/search?q={quote_plus(query)}'>Google</a>.</i>",
             parse_mode=enums.ParseMode.HTML,
@@ -688,14 +688,15 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     
     total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE
     text = (
-        f"<b>📝 Searched: <code>{query}</b></code>"
-        f"\n<b>{channel_name}: Page {page} of {total_pages}</b>"
+        f"<b>🕵🏻‍♂️ Query: <code>{query}</b></code>\n"
+        f"<b>🛒 Cateogry:</b> {channel_name}\n"
+        f"<b>📖 Page:</b> {page} | {total_pages}\n"
     )
     buttons = []
     for f in files:
         file_link = encode_file_link(f["channel_id"], f["message_id"])
         size_str = human_readable_size(f.get('file_size', 0))
-        btn_text = f"{size_str} ✪ {f.get('file_name')}"
+        btn_text = f"{size_str} ✨ {f.get('file_name')}"
         buttons.append([
             InlineKeyboardButton(btn_text, url=f"https://t.me/{BOT_USERNAME}?start=file_{file_link}")
         ])

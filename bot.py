@@ -39,7 +39,7 @@ import logging
 from pyrogram.types import CallbackQuery
 import base64
 from urllib.parse import quote_plus, unquote_plus
-
+from query_helper import store_query, get_query_by_id, start_query_id_cleanup_thread
 # =========================
 # Constants & Globals
 # ========================= 
@@ -616,6 +616,7 @@ async def instant_search_handler(client, message):
         if contains_url(message.text):
             return
         query = sanitize_query(message.text)
+        query_id = store_query(query)
         if not query:
             return
 
@@ -630,7 +631,7 @@ async def instant_search_handler(client, message):
         for c in channels:
             chan_id = c["channel_id"]
             chan_name = c.get("channel_name", str(chan_id))
-            data = make_safe_callback_data(query, chan_id, 1)
+            data = f"search_channel:{query_id}:{chan_id}:1"
             # Callback data includes query and channel_id, page=1
             buttons.append([
                 InlineKeyboardButton(
@@ -659,7 +660,8 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     Handles user's channel selection for search with pagination.
     Performs the search only in the selected channel and displays paged results.
     """
-    query = callback_query.matches[0].group(1)
+    query_id = callback_query.matches[0].group(1)
+    query = get_query_by_id(query_id)
     channel_id = int(callback_query.matches[0].group(2))
     page = int(callback_query.matches[0].group(3))
     query = sanitize_query(unquote_plus(query))
@@ -709,7 +711,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     page_buttons = []
 
     if page > 1:
-        prev_data = make_safe_callback_data(query, channel_id, page-1)
+        prev_data = f"search_channel:{query_id}:{channel_id}:{page-1}"
         page_buttons.append(
             InlineKeyboardButton(
                 "⬅️ Prev",
@@ -717,7 +719,8 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
             )
         )
     if page < total_pages:
-        next_data = make_safe_callback_data(query, channel_id, page+1)
+        next_data = f"search_channel:{query_id}:{channel_id}:{page+1}"
+
         page_buttons.append(
             InlineKeyboardButton(
                 "➡️ Next",
@@ -834,6 +837,7 @@ async def main():
     bot.loop.create_task(start_fastapi())
     bot.loop.create_task(file_queue_worker(bot))  # Start the queue worker
     bot.loop.create_task(periodic_expiry_cleanup())
+    start_query_id_cleanup_thread()
 
     # Send startup message to log channel
     try:

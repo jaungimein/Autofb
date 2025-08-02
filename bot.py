@@ -709,18 +709,20 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
 
     # Pagination controls
     page_buttons = []
+    safe_query = truncate_utf8(query, SAFE_QUERY_LEN)
+
     if page > 1:
         page_buttons.append(
             InlineKeyboardButton(
                 "⬅️ Prev",
-                callback_data=f"search_channel:{quote_plus(query)}:{channel_id}:{page-1}"
+                callback_data=f"search_channel:{quote_plus(safe_query)}:{channel_id}:{page-1}"
             )
         )
     if page < total_pages:
         page_buttons.append(
             InlineKeyboardButton(
                 "➡️ Next",
-                callback_data=f"search_channel:{quote_plus(query)}:{channel_id}:{page+1}"
+                callback_data=f"search_channel:{quote_plus(safe_query)}:{channel_id}:{page+1}"
             )
         )
 

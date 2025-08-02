@@ -81,6 +81,17 @@ def sanitize_query(query):
     query = re.sub(r"\s+", " ", query)
     return query
 
+def truncate_utf8(s, max_bytes):
+    encoded = s.encode('utf-8')
+    if len(encoded) <= max_bytes:
+        return s
+    # Truncate and decode safely
+    truncated = encoded[:max_bytes]
+    # Remove incomplete multi-byte char at the end if any
+    while truncated and (truncated[-1] & 0xc0) == 0x80:
+        truncated = truncated[:-1]
+    return truncated.decode('utf-8', errors='ignore')
+
 def contains_url(text):
     url_pattern = r'https?://\S+|www\.\S+'
     return re.search(url_pattern, text) is not None
@@ -696,18 +707,20 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
 
     # Pagination controls
     page_buttons = []
+    SAFE_QUERY_LEN = 40 
+    short_query = truncate_utf8(query, SAFE_QUERY_LEN)
     if page > 1:
         page_buttons.append(
             InlineKeyboardButton(
                 "⬅️ Prev",
-                callback_data=f"search_channel:{quote_plus(query)}:{channel_id}:{page-1}"
+                callback_data=f"search_channel:{quote_plus(short_query)}:{channel_id}:{page-1}"
             )
         )
     if page < total_pages:
         page_buttons.append(
             InlineKeyboardButton(
                 "➡️ Next",
-                callback_data=f"search_channel:{quote_plus(query)}:{channel_id}:{page+1}"
+                callback_data=f"search_channel:{quote_plus(short_query)}:{channel_id}:{page+1}"
             )
         )
 

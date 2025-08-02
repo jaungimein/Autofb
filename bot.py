@@ -23,7 +23,7 @@ from utility import (
     auto_delete_message, human_readable_size,
     queue_file_for_processing, file_queue_worker,
     file_queue, extract_tmdb_link, periodic_expiry_cleanup,
-    restore_tmdb_photos, make_safe_callback_data
+    restore_tmdb_photos
 )
 from db import (db, users_col, 
                 tokens_col, 

@@ -85,27 +85,28 @@ def contains_url(text):
     return re.search(url_pattern, text) is not None
 
 def build_search_pipeline(query, allowed_ids, skip, limit):
-    # If the query contains any space, treat it as a phrase search
-    if " " in query.strip():
-        search_stage = {
-            "$search": {
-                "index": "default",
-                "phrase": {
-                    "query": query,
-                    "path": "file_name"
-                }
+    # Prepare a compound search that tries to match phrase first, then text
+    search_stage = {
+        "$search": {
+            "index": "default",
+            "compound": {
+                "should": [
+                    {
+                        "phrase": {
+                            "query": query,
+                            "path": "file_name"
+                        }
+                    },
+                    {
+                        "text": {
+                            "query": query,
+                            "path": "file_name"
+                        }
+                    }
+                ]
             }
         }
-    else:
-        search_stage = {
-            "$search": {
-                "index": "default",
-                "text": {
-                    "query": query,
-                    "path": "file_name"
-                }
-            }
-        }
+    }
 
     match_stage = {"$match": {"channel_id": {"$in": allowed_ids}}}
     project_stage = {

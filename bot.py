@@ -77,20 +77,9 @@ def sanitize_query(query):
     # Replace all '&' with 'and'
     query = re.sub(r"\s*&\s*", " and ", query)
     # Replace multiple spaces and limit length
-    query = re.sub(r"[:\-',]", "", query)
+    query = re.sub(r"[:',]", "", query)
     query = re.sub(r"\s+", " ", query)
     return query
-
-def truncate_utf8(s, max_bytes):
-    encoded = s.encode('utf-8')
-    if len(encoded) <= max_bytes:
-        return s
-    # Truncate and decode safely
-    truncated = encoded[:max_bytes]
-    # Remove incomplete multi-byte char at the end if any
-    while truncated and (truncated[-1] & 0xc0) == 0x80:
-        truncated = truncated[:-1]
-    return truncated.decode('utf-8', errors='ignore')
 
 def contains_url(text):
     url_pattern = r'https?://\S+|www\.\S+'
@@ -626,7 +615,9 @@ async def instant_search_handler(client, message):
             return
 
         # Show channel selection buttons
-        text = f"<b>What are you looking for 🔎</b> :"
+        text = (f"<b>🕵🏻‍♂️ Query:</b> {query}\n"
+                f"<b>✅ Select a Cateogry</b>"
+                )
         buttons = []
         for c in channels:
             chan_id = c["channel_id"]
@@ -677,8 +668,9 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
 
     if not files:
         await callback_query.edit_message_text(
-            f"🔍 <b>Query:</b> <code>{query}</code>\n"
-            f"❌ <b>No files found</b> in <b>{channel_name}</b>.\n\n"
+            f"<b>🕵🏻‍♂️ Query: <code>{query}</b></code>\n"
+            f"<b>🛒 Cateogry:</b> {channel_name}\n"
+            f"<b>❌ No files found</b>.\n\n"
             f"📝 <i>Tip: Double-check your spelling or try searching the title on <a href='https://www.google.com/search?q={quote_plus(query)}'>Google</a>.</i>",
             parse_mode=enums.ParseMode.HTML,
             disable_web_page_preview=True

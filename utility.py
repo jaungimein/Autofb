@@ -24,7 +24,6 @@ from mutagen.flac import FLAC
 from mutagen.mp4 import MP4
 from mutagen.id3 import ID3, APIC
 from mutagen import File as MutagenFile
-from urllib.parse import quote_plus
 
 # =========================
 # Constants & Globals

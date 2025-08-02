@@ -265,7 +265,7 @@ def extract_file_info(message, channel_id=None):
         file_info["file_size"] = getattr(message.photo, "file_size", None)
         file_info["file_format"] = "image/jpeg"
     if file_info["file_name"]:
-        file_info["file_name"] = remove_extension(file_info["file_name"])
+        file_info["file_name"] = remove_extension(file_info["file_name"].replace("&", "and"))
     return file_info
 
 def human_readable_size(size):

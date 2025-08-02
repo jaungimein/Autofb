@@ -15,7 +15,7 @@
         { "type": "lowercase" }
       ],
       "tokenizer": {
-        "pattern": "[\\s._\\-()'’]+",
+        "pattern": "[\\s._\\-()]+",
         "type": "regexSplit"
       }
     }

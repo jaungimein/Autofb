@@ -12,9 +12,7 @@
     {
       "name": "custom_filename",
       "tokenFilters": [
-        {
-          "type": "lowercase"
-        }
+        { "type": "lowercase" }
       ],
       "tokenizer": {
         "pattern": "[\\s._\\-()'’]+",

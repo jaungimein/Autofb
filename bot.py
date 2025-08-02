@@ -98,7 +98,7 @@ def build_search_pipeline(query, allowed_ids, skip, limit):
             }
         }
     }
-
+    
     match_stage = {"$match": {"channel_id": {"$in": allowed_ids}}}
     project_stage = {
         "$project": {

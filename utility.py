@@ -352,7 +352,7 @@ async def file_queue_worker(bot):
                 "file_name": file_info["file_name"]
             })
             
-            if existing:
+            if existing and duplicate:
                 telegram_link = generate_c_link(file_info["channel_id"], file_info["message_id"])
                 if reply_func:
                     if duplicate:

@@ -86,39 +86,21 @@ def contains_url(text):
 
 def build_search_pipeline(query, allowed_ids, skip, limit):
     # Determine whether to use phrase or text search
-    if " " in query.strip():
-        # Phrase search with optimized fuzzy matching
-        search_stage = {
-            "$search": {
-                "index": "default",
-                "phrase": {
-                    "query": query,
-                    "path": "file_name",
-                    "fuzzy": {
-                        "maxEdits": 1,        # Allow 1-character typo tolerance
-                        "prefixLength": 2,    # First 2 characters must match
-                        "maxExpansions": 30   # Good balance of recall and performance
-                    }
+    search_stage = {
+        "$search": {
+            "index": "default",
+            "text": {
+                "query": query,
+                "path": "file_name",
+                "fuzzy": {
+                    "maxEdits": 1,        # Allows 1-character typos
+                    "prefixLength": 2,    # Keeps the first 2 letters fixed
+                    "maxExpansions": 30   # Limits the number of fuzzy matches
                 }
             }
         }
-    else:
-        # Basic text search with the same fuzzy logic
-        search_stage = {
-            "$search": {
-                "index": "default",
-                "text": {
-                    "query": query,
-                    "path": "file_name",
-                    "fuzzy": {
-                        "maxEdits": 1,
-                        "prefixLength": 2,
-                        "maxExpansions": 30
-                    }
-                }
-            }
-        }
-
+    }
+    
     # Filter only documents that match allowed channel IDs
     match_stage = {
         "$match": {

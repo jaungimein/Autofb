@@ -86,21 +86,34 @@ def contains_url(text):
 
 def build_search_pipeline(query, allowed_ids, skip, limit):
     # Determine whether to use phrase or text search
-    search_stage = {
-        "$search": {
-            "index": "default",
-            "text": {
-                "query": query,
-                "path": "file_name",
-                "fuzzy": {
-                    "maxEdits": 1,        # Allows 1-character typos
-                    "prefixLength": 2,    # Keeps the first 2 letters fixed
-                    "maxExpansions": 30   # Limits the number of fuzzy matches
+    if " " in query.strip():
+        # Phrase search with optimized fuzzy matching
+        search_stage = {
+            "$search": {
+                "index": "default",
+                "phrase": {
+                    "query": query,
+                    "path": "file_name",
                 }
             }
         }
-    }
-    
+    else:
+        # Basic text search with the same fuzzy logic
+        search_stage = {
+            "$search": {
+                "index": "default",
+                "text": {
+                    "query": query,
+                    "path": "file_name",
+                    "fuzzy": {
+                        "maxEdits": 1,
+                        "prefixLength": 3,
+                        "maxExpansions": 30
+                    }
+                }
+            }
+        }
+
     # Filter only documents that match allowed channel IDs
     match_stage = {
         "$match": {
@@ -125,8 +138,8 @@ def build_search_pipeline(query, allowed_ids, skip, limit):
     # Sort by relevance first, then alphabetically
     sort_stage = {
         "$sort": {
-            "score": -1,
-            "file_name": 1
+            "file_name": 1,
+            "score": -1
         }
     }
 

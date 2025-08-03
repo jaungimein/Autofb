@@ -77,7 +77,6 @@ def sanitize_query(query):
     # Replace all '&' with 'and'
     query = re.sub(r"\s*&\s*", " and ", query)
     # Replace multiple spaces and limit length
-    query = re.sub(r"[:',]", "", query)
     query = re.sub(r"\s+", " ", query)
     return query
 
@@ -86,21 +85,48 @@ def contains_url(text):
     return re.search(url_pattern, text) is not None
 
 def build_search_pipeline(query, allowed_ids, skip, limit):
-    words = [w for w in query.strip().split() if w]
-    must_clauses = [
-        {"text": {"query": word, "path": "file_name"}}
-        for word in words
-    ]
-    search_stage = {
-        "$search": {
-            "index": "default",
-            "compound": {
-                "must": must_clauses
+    # Determine whether to use phrase or text search
+    if " " in query.strip():
+        # Phrase search with optimized fuzzy matching
+        search_stage = {
+            "$search": {
+                "index": "default",
+                "phrase": {
+                    "query": query,
+                    "path": "file_name",
+                    "fuzzy": {
+                        "maxEdits": 1,        # Allow 1-character typo tolerance
+                        "prefixLength": 2,    # First 2 characters must match
+                        "maxExpansions": 30   # Good balance of recall and performance
+                    }
+                }
             }
         }
+    else:
+        # Basic text search with the same fuzzy logic
+        search_stage = {
+            "$search": {
+                "index": "default",
+                "text": {
+                    "query": query,
+                    "path": "file_name",
+                    "fuzzy": {
+                        "maxEdits": 1,
+                        "prefixLength": 2,
+                        "maxExpansions": 30
+                    }
+                }
+            }
+        }
+
+    # Filter only documents that match allowed channel IDs
+    match_stage = {
+        "$match": {
+            "channel_id": {"$in": allowed_ids}
+        }
     }
-    
-    match_stage = {"$match": {"channel_id": {"$in": allowed_ids}}}
+
+    # Project necessary fields and include search score
     project_stage = {
         "$project": {
             "_id": 0,
@@ -113,8 +139,16 @@ def build_search_pipeline(query, allowed_ids, skip, limit):
             "score": {"$meta": "searchScore"}
         }
     }
-    sort_stage = {"$sort": {"file_name": 1, "score": -1}}
 
+    # Sort by relevance first, then alphabetically
+    sort_stage = {
+        "$sort": {
+            "score": -1,
+            "file_name": 1
+        }
+    }
+
+    # Use facet to get paginated results and total count
     facet_stage = {
         "$facet": {
             "results": [
@@ -128,6 +162,7 @@ def build_search_pipeline(query, allowed_ids, skip, limit):
             ]
         }
     }
+
     return [search_stage, match_stage, facet_stage]
 
 # =========================

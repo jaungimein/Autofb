@@ -2,7 +2,7 @@ import time
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from config import MY_DOMAIN
+from config import MY_DOMAIN, BOT_USERNAME
 from db import allowed_channels_col, files_col
 from utility import (get_cache_key, search_api_cache, CACHE_TTL, 
                      build_search_pipeline, 
@@ -60,7 +60,7 @@ async def search_files(
         ).sort("_id", -1))
         total = len(files)
     for f in files:
-        f["telegram_link"] = generate_telegram_link("YourBotUsername", f["channel_id"], f["message_id"])
+        f["telegram_link"] = generate_telegram_link(BOT_USERNAME, f["channel_id"], f["message_id"])
         f["file_size"] = human_readable_size(f.get("file_size", 0))
     search_api_cache[cache_key] = (now, files)
     return {"results": files[skip:skip+limit], "total": total}

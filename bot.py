@@ -23,7 +23,7 @@ from utility import (
     auto_delete_message, human_readable_size,
     queue_file_for_processing, file_queue_worker,
     file_queue, extract_tmdb_link, periodic_expiry_cleanup,
-    restore_tmdb_photos
+    restore_tmdb_photos, build_search_pipeline
 )
 from db import (db, users_col, 
                 tokens_col, 
@@ -84,82 +84,6 @@ def sanitize_query(query):
 def contains_url(text):
     url_pattern = r'https?://\S+|www\.\S+'
     return re.search(url_pattern, text) is not None
-
-def build_search_pipeline(query, allowed_ids, skip, limit):
-    # Determine whether to use phrase or text search
-    if " " in query.strip():
-        # Phrase search with optimized fuzzy matching
-        search_stage = {
-            "$search": {
-                "index": "default",
-                "phrase": {
-                    "query": query,
-                    "path": "file_name",
-                }
-            }
-        }
-    else:
-        # Basic text search with the same fuzzy logic
-        search_stage = {
-            "$search": {
-                "index": "default",
-                "text": {
-                    "query": query,
-                    "path": "file_name",
-                    "fuzzy": {
-                        "maxEdits": 1,
-                        "prefixLength": 3,
-                        "maxExpansions": 30
-                    }
-                }
-            }
-        }
-
-    # Filter only documents that match allowed channel IDs
-    match_stage = {
-        "$match": {
-            "channel_id": {"$in": allowed_ids}
-        }
-    }
-
-    # Project necessary fields and include search score
-    project_stage = {
-        "$project": {
-            "_id": 0,
-            "file_name": 1,
-            "file_size": 1,
-            "file_format": 1,
-            "message_id": 1,
-            "date": 1,
-            "channel_id": 1,
-            "score": {"$meta": "searchScore"}
-        }
-    }
-
-    # Sort by relevance first, then alphabetically
-    sort_stage = {
-        "$sort": {
-            "file_name": 1,
-            "score": -1
-        }
-    }
-
-    # Use facet to get paginated results and total count
-    facet_stage = {
-        "$facet": {
-            "results": [
-                project_stage,
-                sort_stage,
-                {"$skip": skip},
-                {"$limit": limit}
-            ],
-            "totalCount": [
-                {"$count": "total"}
-            ]
-        }
-    }
-
-    return [search_stage, match_stage, facet_stage]
 
 # =========================
 # Bot Command Handlers

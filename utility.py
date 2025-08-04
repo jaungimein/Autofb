@@ -32,6 +32,12 @@ from mutagen import File as MutagenFile
 TOKEN_VALIDITY_SECONDS = 24 * 60 * 60  # 24 hours
 AUTO_DELETE_SECONDS = 5 * 60
 
+# Simple in-memory cache: {(q, channel_id): (timestamp, results)}
+search_api_cache = {}
+CACHE_TTL = 300  # 5 minutes
+
+def get_cache_key(q, channel_id):
+    return (q.strip().lower(), channel_id)
 
 # CACHE FOR SEARCH RESULTS
 search_cache = {}
@@ -59,6 +65,83 @@ def set_cached_search(query, page, channel_id, files, total_files):
 
 def invalidate_search_cache():
     search_cache.clear()
+    search_api_cache.clear()
+
+def build_search_pipeline(query, allowed_ids, skip, limit):
+    # Determine whether to use phrase or text search
+    if " " in query.strip():
+        # Phrase search with optimized fuzzy matching
+        search_stage = {
+            "$search": {
+                "index": "default",
+                "phrase": {
+                    "query": query,
+                    "path": "file_name",
+                }
+            }
+        }
+    else:
+        # Basic text search with the same fuzzy logic
+        search_stage = {
+            "$search": {
+                "index": "default",
+                "text": {
+                    "query": query,
+                    "path": "file_name",
+                    "fuzzy": {
+                        "maxEdits": 1,
+                        "prefixLength": 3,
+                        "maxExpansions": 30
+                    }
+                }
+            }
+        }
+
+    # Filter only documents that match allowed channel IDs
+    match_stage = {
+        "$match": {
+            "channel_id": {"$in": allowed_ids}
+        }
+    }
+
+    # Project necessary fields and include search score
+    project_stage = {
+        "$project": {
+            "_id": 0,
+            "file_name": 1,
+            "file_size": 1,
+            "file_format": 1,
+            "message_id": 1,
+            "date": 1,
+            "channel_id": 1,
+            "score": {"$meta": "searchScore"}
+        }
+    }
+
+    # Sort by relevance first, then alphabetically
+    sort_stage = {
+        "$sort": {
+            "file_name": 1,
+            "score": -1
+        }
+    }
+
+    # Use facet to get paginated results and total count
+    facet_stage = {
+        "$facet": {
+            "results": [
+                project_stage,
+                sort_stage,
+                {"$skip": skip},
+                {"$limit": limit}
+            ],
+            "totalCount": [
+                {"$count": "total"}
+            ]
+        }
+    }
+
+    return [search_stage, match_stage, facet_stage]
 
 # =========================
 # Channel & User Utilities

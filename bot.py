@@ -78,7 +78,7 @@ def sanitize_query(query):
     query = re.sub(r"\s*&\s*", " and ", query)
     # Replace multiple spaces and limit length
     query = re.sub(r"[:',]", "", query)
-    query = re.sub(r"\s+", " ", query)
+    query = re.sub(r"[.\s_\-\(\)\[\]]+", " ", query).strip()
     return query
 
 def contains_url(text):

@@ -68,47 +68,31 @@ def invalidate_search_cache():
     search_api_cache.clear()
 
 def build_search_pipeline(query, allowed_ids, skip, limit):
-    # Full-text and phrase search with highlighting
+    # Search stage: require all query terms in any order
     search_stage = {
         "$search": {
             "index": "default",
             "compound": {
-                "should": [
-                    {
-                        "phrase": {
-                            "query": query,
-                            "path": "file_name",
-                            "slop": 0  # Strict ordering: "the sandman" must appear in that order
-                        }
-                    },
+                "must": [
                     {
                         "text": {
                             "query": query,
-                            "path": "file_name",
-                            "score": {
-                                "boost": {
-                                    "value": 0.5  # Less relevant than exact phrase
-                                }
-                            }
+                            "path": "file_name"
                         }
                     }
                 ]
-            },
-            "highlight": {
-                "path": "file_name"
             }
         }
     }
 
-    # Match by allowed channel IDs
+    # Match allowed channel IDs
     match_stage = {
         "$match": {
-            "channel_id": {"$in": allowed_ids},
-            "score": {"$gt": 2.0} 
+            "channel_id": {"$in": allowed_ids}
         }
     }
 
-    # Project required fields + search score + highlights
+    # Project only necessary fields and search score
     project_stage = {
         "$project": {
             "_id": 0,
@@ -117,12 +101,11 @@ def build_search_pipeline(query, allowed_ids, skip, limit):
             "file_format": 1,
             "message_id": 1,
             "channel_id": 1,
-            "score": {"$meta": "searchScore"},
-            "highlights": {"$meta": "searchHighlights"}
+            "score": {"$meta": "searchScore"}
         }
     }
 
-    # Sort by score (higher relevance first), fallback to alphabetical if needed
+    # Sort results by score and then file name
     sort_stage = {
         "$sort": {
             "score": -1,
@@ -130,7 +113,7 @@ def build_search_pipeline(query, allowed_ids, skip, limit):
         }
     }
 
-    # Use facet for pagination and total count
+    # Facet: paginated results and total count
     facet_stage = {
         "$facet": {
             "results": [

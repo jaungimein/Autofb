@@ -23,7 +23,8 @@ from utility import (
     auto_delete_message, human_readable_size,
     queue_file_for_processing, file_queue_worker,
     file_queue, extract_tmdb_link, periodic_expiry_cleanup,
-    restore_tmdb_photos, build_search_pipeline
+    restore_tmdb_photos, build_search_pipeline,
+    format_user_name
 )
 from db import (db, users_col, 
                 tokens_col, 
@@ -551,11 +552,12 @@ async def tmdb_command(client, message):
         await safe_api_call(message.reply_text(f"Error in tmdb command: {e}"))
     await message.delete()
 
-@bot.on_message(filters.private & filters.text & ~filters.command([
+@bot.on_message(filters.chat(GROUP_ID) & filters.text & ~filters.command([
     "start", "stats", "add", "rm", "broadcast", "log", "tmdb", "restore", "index", "del", "restart", "chatop"
 ]))
 async def instant_search_handler(client, message):
     reply = None
+    user_name = format_user_name(message.from_user)
     try:
         if contains_url(message.text):
             return
@@ -566,18 +568,19 @@ async def instant_search_handler(client, message):
 
         channels = list(allowed_channels_col.find({}, {"_id": 0, "channel_id": 1, "channel_name": 1}))
         if not channels:
-            reply = await safe_api_call(message.reply_text("No allowed channels available for search."))
+            reply = await safe_api_call(message.reply_text(f"No allowed channels available for search, {user_name}."))
             return
 
         # Show channel selection buttons
         text = (f"<b>🕵🏻‍♂️ Query:</b> {query}\n"
+                f"<b>👤 User:</b> {user_name}\n"
                 f"<b>✅ Select a Cateogry</b>"
                 )
         buttons = []
         for c in channels:
             chan_id = c["channel_id"]
             chan_name = c.get("channel_name", str(chan_id))
-            data = f"search_channel:{query_id}:{chan_id}:1"
+            data = f"search_channel:{query_id}:{chan_id}:1:{message.from_user.id}"
             # Callback data includes query and channel_id, page=1
             buttons.append([
                 InlineKeyboardButton(
@@ -595,12 +598,13 @@ async def instant_search_handler(client, message):
         )
     except Exception as e:
         logger.error(f"Error in instant_search_handler: {e}")
-        reply = await message.reply_text("Invalid search query. Please try again with a different query.")
+        user_name = format_user_name(message.from_user)
+        reply = await message.reply_text(f"Invalid search query, {user_name}. Please try again with a different query.")
     if reply:
         bot.loop.create_task(auto_delete_message(message, reply))
 
 
-@bot.on_callback_query(filters.regex(r"^search_channel:(.+):(-?\d+):(\d+)$"))
+@bot.on_callback_query(filters.regex(r"^search_channel:(.+):(-?\d+):(\d+):(\d+)$"))
 async def channel_search_callback_handler(client, callback_query: CallbackQuery):
     """
     Handles user's channel selection for search with pagination.
@@ -610,8 +614,11 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     query = get_query_by_id(query_id)
     channel_id = int(callback_query.matches[0].group(2))
     page = int(callback_query.matches[0].group(3))
+    original_user_id = int(callback_query.matches[0].group(4))
+    current_user_id = callback_query.from_user.id
     query = sanitize_query(unquote_plus(query))
     skip = (page - 1) * SEARCH_PAGE_SIZE
+    user_name = format_user_name(callback_query.from_user)
 
     pipeline = build_search_pipeline(query, [channel_id], skip, SEARCH_PAGE_SIZE)
     result = list(files_col.aggregate(pipeline))
@@ -621,11 +628,16 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     channel_info = allowed_channels_col.find_one({'channel_id': channel_id})
     channel_name = channel_info.get('channel_name', str(channel_id)) if channel_info else str(channel_id)
 
+    if current_user_id != original_user_id:
+        await callback_query.answer("❌ Only the original requester can use these buttons.", show_alert=True)
+        return
+
     if not files:
         await callback_query.edit_message_text(
             f"<b>🕵🏻‍♂️ Query: <code>{query}</b></code>\n"
             f"<b>🛒 Cateogry:</b> {channel_name}\n"
-            f"<b>❌ No files found</b>.\n\n"
+            f"<b>👤 User:</b> {user_name}\n"
+            f"<b>❌ No files found</b>.\n\n"            
             f"📝 <i>Tip: Double-check your spelling or try searching the title on <a href='https://www.google.com/search?q={quote_plus(query)}'>Google</a>.</i>",
             parse_mode=enums.ParseMode.HTML,
             disable_web_page_preview=True
@@ -633,8 +645,8 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
         # Send to log channel with the query and user id
         user_id = callback_query.from_user.id
         await bot.send_message(
-            LOG_CHANNEL_ID,
-            f"🔎 No result for query:\n<code>{query}</code> in <b>{channel_name}</b>\nUser ID: <code>{user_id}</code>"
+            LOG_CHANNEL_ID, 
+            f"🔎 No result for query:\n<code>{query}</code> in <b>{channel_name}</b>\nUser: {user_name}\nUser ID: <code>{user_id}</code>"
         )
         await callback_query.answer()
         return
@@ -643,6 +655,8 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     text = (
         f"<b>🕵🏻‍♂️ Query: <code>{query}</b></code>\n"
         f"<b>🛒 Cateogry:</b> {channel_name}\n"
+        f"<b>👤 User:</b> {user_name}\n"
+        f"<b>📂 Found:</b> {total_files} files\n"
         f"<b>📖 Page:</b> {page} | {total_pages}\n"
     )
     buttons = []
@@ -650,15 +664,19 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
         file_link = encode_file_link(f["channel_id"], f["message_id"])
         size_str = human_readable_size(f.get('file_size', 0))
         btn_text = f"{size_str} ✨ {f.get('file_name')}"
+        # Add user_id to callback_data
         buttons.append([
-            InlineKeyboardButton(btn_text, url=f"https://t.me/{BOT_USERNAME}?start=file_{file_link}")
+            InlineKeyboardButton(
+                btn_text,
+                callback_data=f"getfile:{file_link}:{callback_query.from_user.id}"
+            )
         ])
 
     # Pagination controls
     page_buttons = []
 
     if page > 1:
-        prev_data = f"search_channel:{query_id}:{channel_id}:{page-1}"
+        prev_data = f"search_channel:{query_id}:{channel_id}:{page-1}:{original_user_id}"
         page_buttons.append(
             InlineKeyboardButton(
                 "⬅️ Prev",
@@ -666,8 +684,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
             )
         )
     if page < total_pages:
-        next_data = f"search_channel:{query_id}:{channel_id}:{page+1}"
-
+        next_data = f"search_channel:{query_id}:{channel_id}:{page+1}:{original_user_id}"
         page_buttons.append(
             InlineKeyboardButton(
                 "➡️ Next",
@@ -686,6 +703,59 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     except Exception:
         pass
     await callback_query.answer()
+
+@bot.on_callback_query(filters.regex(r"^getfile:(.+):(\d+)$"))
+async def send_file_callback(client, callback_query: CallbackQuery):
+    file_link = callback_query.matches[0].group(1)
+    allowed_user_id = int(callback_query.matches[0].group(2))
+    user_id = callback_query.from_user.id
+    user = callback_query.from_user
+    user_name = user.first_name
+    if user.last_name:
+        user_name += f" {user.last_name}"
+    if user.username:
+        user_name += f" (@{user.username})"
+    try:
+        if user_id != allowed_user_id:
+            await callback_query.answer(
+                f"❌ Only the original requester ({user_name}) can access this file.",
+                show_alert=True
+            )
+            return
+        if user_id != OWNER_ID and not is_user_authorized(user_id):
+            now = datetime.now(timezone.utc)
+            token_doc = tokens_col.find_one({
+                "user_id": user_id,
+                "expiry": {"$gt": now}
+            })
+            token_id = token_doc["token_id"] if token_doc else generate_token(user_id)
+            short_link = shorten_url(get_token_link(token_id, BOT_USERNAME))
+            await callback_query.answer(
+                f"❌ {user_name}, you are not authorized to access this file.\n"
+                "Please use this link to get access for 24 hours:",
+                show_alert=True,
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("Get Access Link", url=short_link)]]
+                )
+            )
+            return
+        padding = '=' * (-len(file_link) % 4)
+        decoded = base64.urlsafe_b64decode(file_link + padding).decode()
+        channel_id_str, msg_id_str = decoded.split("_")
+        channel_id = int(channel_id_str)
+        msg_id = int(msg_id_str)
+        file_doc = files_col.find_one({"channel_id": channel_id, "message_id": msg_id})
+        if not file_doc:
+            await callback_query.answer("File not found.", show_alert=True)
+            return
+        await client.copy_message(
+            chat_id=user_id,
+            from_chat_id=file_doc["channel_id"],
+            message_id=file_doc["message_id"]
+        )
+        await callback_query.answer(f"File sent in chat, {user_name}.", show_alert=True)
+    except Exception as e:
+        await callback_query.answer(f"Failed: {e}", show_alert=True)
 
 @bot.on_message(filters.chat(GROUP_ID) & filters.service)
 async def delete_service_messages(client, message):

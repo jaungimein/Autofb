@@ -180,6 +180,18 @@ def is_user_authorized(user_id):
         return False
     return True
 
+def format_user_name(user):
+    """
+    Returns a nicely formatted user name.
+    If username is available, includes it as @username.
+    """
+    full_name = user.first_name or ""
+    if user.last_name:
+        full_name += f" {user.last_name}"
+    if user.username:
+        full_name += f" (@{user.username})"
+    return full_name.strip()
+
 # =========================
 # Token Utilities
 # =========================

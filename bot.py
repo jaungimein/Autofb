@@ -24,7 +24,7 @@ from utility import (
     queue_file_for_processing, file_queue_worker,
     file_queue, extract_tmdb_link, periodic_expiry_cleanup,
     restore_tmdb_photos, build_search_pipeline,
-    format_user_name
+    format_user_name,delete_after_delay
 )
 from db import (db, users_col, 
                 tokens_col, 
@@ -730,14 +730,18 @@ async def send_file_callback(client, callback_query: CallbackQuery):
             })
             token_id = token_doc["token_id"] if token_doc else generate_token(user_id)
             short_link = shorten_url(get_token_link(token_id, BOT_USERNAME))
-            await callback_query.answer(
-                f"❌ {user_name}, you are not authorized to access this file.\n"
-                "Please use this link to get access for 24 hours:",
-                show_alert=True,
+            reply = await bot.send_message(
+                chat_id=user_id,
+                text=(
+                    f"❌ {user_name}, you are not authorized to access this file.\n\n"
+                    "Please use this link to get access for 24 hours:"
+                ),
                 reply_markup=InlineKeyboardMarkup(
-                    [[InlineKeyboardButton("Get Access Link", url=short_link)]]
+                    [[InlineKeyboardButton("🔓 Get Access Link", url=short_link)]]
                 )
             )
+            await callback_query.answer("Access link sent in your chat.", show_alert=True)
+            bot.loop.create_task(delete_after_delay(reply))
             return
         padding = '=' * (-len(file_link) % 4)
         decoded = base64.urlsafe_b64decode(file_link + padding).decode()

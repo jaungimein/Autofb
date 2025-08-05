@@ -387,10 +387,10 @@ async def safe_api_call(coro):
         except Exception:
             raise
 
-async def delete_after_delay(client, chat_id, msg_id):
+async def delete_after_delay(message):
     await asyncio.sleep(AUTO_DELETE_SECONDS)
     try:
-        await safe_api_call(client.delete_messages(chat_id, msg_id))
+        await safe_api_call(message.delete())
     except Exception:
         pass
 

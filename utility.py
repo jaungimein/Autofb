@@ -68,34 +68,16 @@ def invalidate_search_cache():
     search_api_cache.clear()
 
 def build_search_pipeline(query, allowed_ids, skip, limit):
-    # Determine whether to use phrase or text search
-    if " " in query.strip():
-        # Phrase search with optimized fuzzy matching
-        search_stage = {
-            "$search": {
-                "index": "default",
-                "phrase": {
-                    "query": query,
-                    "path": "file_name",
-                }
+
+    search_stage = {
+        "$search": {
+            "index": "default",
+            "text": {
+                "query": query,
+                "path": "file_name",
             }
         }
-    else:
-        # Basic text search with the same fuzzy logic
-        search_stage = {
-            "$search": {
-                "index": "default",
-                "text": {
-                    "query": query,
-                    "path": "file_name",
-                    "fuzzy": {
-                        "maxEdits": 1,
-                        "prefixLength": 3,
-                        "maxExpansions": 30
-                    }
-                }
-            }
-        }
+    }
 
     # Filter only documents that match allowed channel IDs
     match_stage = {
@@ -112,7 +94,6 @@ def build_search_pipeline(query, allowed_ids, skip, limit):
             "file_size": 1,
             "file_format": 1,
             "message_id": 1,
-            "date": 1,
             "channel_id": 1,
             "score": {"$meta": "searchScore"}
         }
@@ -121,7 +102,6 @@ def build_search_pipeline(query, allowed_ids, skip, limit):
     # Sort by relevance first, then alphabetically
     sort_stage = {
         "$sort": {
-            "file_name": 1,
             "score": -1
         }
     }

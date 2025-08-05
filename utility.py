@@ -68,19 +68,26 @@ def invalidate_search_cache():
     search_api_cache.clear()
 
 def build_search_pipeline(query, allowed_ids, skip, limit):
-    # Search stage: require all query terms in any order
+    # Split the query string into words
+    terms = query.strip().lower().split()
+
+    # Create a separate `text` clause for each term
+    must_clauses = [
+        {
+            "text": {
+                "query": term,
+                "path": "file_name"
+            }
+        }
+        for term in terms
+    ]
+
+    # Build search stage with compound.must
     search_stage = {
         "$search": {
             "index": "default",
             "compound": {
-                "must": [
-                    {
-                        "text": {
-                            "query": query,
-                            "path": "file_name"
-                        }
-                    }
-                ]
+                "must": must_clauses
             }
         }
     }

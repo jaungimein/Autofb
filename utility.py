@@ -68,25 +68,46 @@ def invalidate_search_cache():
     search_api_cache.clear()
 
 def build_search_pipeline(query, allowed_ids, skip, limit):
-
+    # Full-text and phrase search with highlighting
     search_stage = {
         "$search": {
             "index": "default",
-            "text": {
-                "query": query,
-                "path": "file_name",
+            "compound": {
+                "should": [
+                    {
+                        "phrase": {
+                            "query": query,
+                            "path": "file_name",
+                            "slop": 0  # Strict ordering: "the sandman" must appear in that order
+                        }
+                    },
+                    {
+                        "text": {
+                            "query": query,
+                            "path": "file_name",
+                            "score": {
+                                "boost": {
+                                    "value": 0.5  # Less relevant than exact phrase
+                                }
+                            }
+                        }
+                    }
+                ]
+            },
+            "highlight": {
+                "path": "file_name"
             }
         }
     }
 
-    # Filter only documents that match allowed channel IDs
+    # Match by allowed channel IDs
     match_stage = {
         "$match": {
             "channel_id": {"$in": allowed_ids}
         }
     }
 
-    # Project necessary fields and include search score
+    # Project required fields + search score + highlights
     project_stage = {
         "$project": {
             "_id": 0,
@@ -95,18 +116,20 @@ def build_search_pipeline(query, allowed_ids, skip, limit):
             "file_format": 1,
             "message_id": 1,
             "channel_id": 1,
-            "score": {"$meta": "searchScore"}
+            "score": {"$meta": "searchScore"},
+            "highlights": {"$meta": "searchHighlights"}
         }
     }
 
-    # Sort by relevance first, then alphabetically
+    # Sort by score (higher relevance first), fallback to alphabetical if needed
     sort_stage = {
         "$sort": {
-            "score": -1
+            "score": -1,
+            "file_name": 1
         }
     }
 
-    # Use facet to get paginated results and total count
+    # Use facet for pagination and total count
     facet_stage = {
         "$facet": {
             "results": [

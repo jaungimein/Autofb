@@ -103,7 +103,8 @@ def build_search_pipeline(query, allowed_ids, skip, limit):
     # Match by allowed channel IDs
     match_stage = {
         "$match": {
-            "channel_id": {"$in": allowed_ids}
+            "channel_id": {"$in": allowed_ids},
+            "score": {"$gt": 2.0} 
         }
     }
 

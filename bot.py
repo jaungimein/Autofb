@@ -11,8 +11,9 @@ from datetime import datetime, timezone
 from collections import defaultdict
 
 from pyrogram import Client, enums, filters
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, BotCommand
-from pyrogram.errors import ListenerTimeout
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from pyrogram.types import ChatPermissions
+from pyrogram.errors import ListenerTimeout, RPCError
 import uvicorn
 
 from config import *
@@ -837,6 +838,44 @@ async def chatop_handler(client, message: Message):
             await message.reply_text(f"❌ Failed: {e}")
     else:
         await message.reply_text("Invalid operation. Use 'send' or 'del'.")
+
+@bot.on_message(filters.command("lock") & filters.chat(GROUP_ID))
+async def lock_group(client, message):
+    if message.from_user.id != OWNER_ID:
+        return await message.reply_text("❌ Only the bot owner can use this command.")
+
+    try:
+        await client.set_chat_permissions(
+            chat_id=message.chat.id,
+            permissions=ChatPermissions()  # No permissions = fully locked
+        )
+        await message.reply_text("🔒 Group has been locked. Members can't send messages.")
+        await message.delete()
+    except RPCError as e:
+        await message.reply_text(f"⚠️ Failed to lock group: {e}")
+
+
+@bot.on_message(filters.command("unlock") & filters.chat(GROUP_ID))
+async def unlock_group(client, message):
+    if message.from_user.id != OWNER_ID:
+        return await message.reply_text("❌ Only the bot owner can use this command.")
+
+    try:
+        await client.set_chat_permissions(
+            chat_id=message.chat.id,
+            permissions=ChatPermissions(
+                can_send_messages=True,
+                can_send_media_messages=True,
+                can_send_polls=True,
+                can_send_other_messages=True,
+                can_add_web_page_previews=True
+            )
+        )
+        await message.reply_text("🔓 Group has been unlocked. Members can now send messages.")
+        await message.delete()
+    except RPCError as e:
+        await message.reply_text(f"⚠️ Failed to unlock group: {e}")
+
 
 # =========================
 # Main Entrypoint

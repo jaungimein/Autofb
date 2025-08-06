@@ -413,27 +413,28 @@ async def broadcast_handler(client, message: Message):
     Handles the /broadcast command for the owner.
     - If replying to a message, copies that message to all users.
     - Otherwise, broadcasts a text message.
-    - Removes users from DB if blocked or deactivated.
+    - Removes users from DB if any exception occurs during message send.
     """
     if message.reply_to_message:
         users = users_col.find({}, {"_id": 0, "user_id": 1})
         total = 0
         failed = 0
         removed = 0
+
         for user in users:
-            try:
-                await asyncio.sleep(1)  # Rate limit to avoid flooding
+             try:
+                await asyncio.sleep(1)  # Rate limit
                 await safe_api_call(message.reply_to_message.copy(user["user_id"]))
                 total += 1
-            except Exception as e:
+             except Exception:
                 failed += 1
-                err_str = str(e)
-                if "UserIsBlocked" in err_str or "InputUserDeactivated" in err_str:
-                    users_col.delete_one({"user_id": user["user_id"]})
-                    removed += 1
+                users_col.delete_one({"user_id": user["user_id"]})
+                removed += 1
                 continue
-            await asyncio.sleep(3)
-        await message.reply_text(f"✅ Broadcasted replied message to {total} users. Failed: {failed}. Removed: {removed}")
+             await asyncio.sleep(3)
+
+        await message.reply_text(f"✅ Broadcasted replied message to {total} users.\n❌ Failed: {failed}\n🗑️ Removed: {removed}")
+                                                                                                
 
 @bot.on_message(filters.command("log") & filters.private & filters.user(OWNER_ID))
 async def send_log_file(client, message: Message):

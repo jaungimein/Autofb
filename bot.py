@@ -101,96 +101,81 @@ async def start_handler(client, message):
     - Deletes every message sent and received, but only once after all tasks are done.
     """
     reply_msg = None  
-    # Only allow in private chat
-    if not message.chat.type == enums.ChatType.PRIVATE:
-        try:
+    try: 
+        user_id = message.from_user.id
+        user = message.from_user
+        user_name = user.first_name or user.last_name or (user.username and f"@{user.username}") or "USER"
+
+        add_user(user_id)
+        bot_username = BOT_USERNAME
+
+        # --- Token-based authorization ---
+        if len(message.command) == 2 and message.command[1].startswith("token_"):
+            if is_token_valid(message.command[1][6:], user_id):
+                authorize_user(user_id)
+                reply_msg = await safe_api_call(message.reply_text("✅ You are now authorized to access files for 24 hours."))
+                await safe_api_call(bot.send_message(LOG_CHANNEL_ID, f"✅ User <b>{user_name}</b> (<code>{user.id}</code>) authorized via token."))
+            else:
+                reply_msg = await safe_api_call(message.reply_text("❌ Invalid or expired token. Please get a new link."))
+
+        # --- File access via deep link ---
+        elif len(message.command) == 2 and message.command[1].startswith("file_"):
+            # Check if user is authorized, but skip for OWNER_ID
+            if user_id != OWNER_ID and not is_user_authorized(user_id):
+                now = datetime.now(timezone.utc)
+                token_doc = tokens_col.find_one({
+                    "user_id": user_id,
+                    "expiry": {"$gt": now}
+                })
+                token_id = token_doc["token_id"] if token_doc else generate_token(user_id)
+                short_link = shorten_url(get_token_link(token_id, bot_username))
+                reply_msg = await safe_api_call(message.reply_text(
+                    "❌ You are not authorized\n"
+                    "Please use this link to get access for 24 hours:",
+                    reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("Get Access Link", url=short_link)]]
+                    )
+                ))
+            elif user_id != OWNER_ID and user_file_count[user_id] >= MAX_FILES_PER_SESSION:
+                reply_msg = await safe_api_call(message.reply_text("❌ You have reached the maximum of 10 files per session."))
+            else:
+                # Decode file link and send file
+                try: 
+                    b64 = message.command[1][5:]
+                    padding = '=' * (-len(b64) % 4)
+                    decoded = base64.urlsafe_b64decode(b64 + padding).decode()
+                    channel_id_str, msg_id_str = decoded.split("_")
+                    channel_id = int(channel_id_str)
+                    msg_id = int(msg_id_str)
+                    file_doc = files_col.find_one({"channel_id": channel_id, "message_id": msg_id})
+                    if not file_doc:
+                        reply_msg = await safe_api_call(message.reply_text("File not found."))
+                    else:
+                        reply_msg = await safe_api_call(client.copy_message(
+                            chat_id=message.chat.id,
+                            from_chat_id=file_doc["channel_id"],
+                            message_id=file_doc["message_id"]
+                        ))
+                        user_file_count[user_id] += 1
+                except Exception as e:
+                    reply_msg = await safe_api_call(message.reply_text(f"Failed to send file: {e}"))
+        # --- Default greeting ---
+        else:
             reply_msg = await safe_api_call(
                 message.reply_text(
-                    f"🔒 Please <b>DM</b> to use <code>/start</code>.",
-                    reply_markup=InlineKeyboardMarkup(
-                        [[InlineKeyboardButton("Open Bot", url=f"https://t.me/{BOT_USERNAME}")]]
-                    ),
-                    parse_mode=enums.ParseMode.HTML,
+                f"<b>Welcome, {user_name}!</b>\n\n"
+                f"<b>This bot used to manage TG⚡️FLIX</b>\n\n"
+                f"<b>Need help?</b> Contact: {SUPPORT}",
+                reply_markup=InlineKeyboardMarkup(
+                    [
+                    [InlineKeyboardButton("Updates Channel", url=f"{UPDATE_CHANNEL_LINK}")]
+                    ]
+                ),
+                parse_mode=enums.ParseMode.HTML
                 )
             )
-        except Exception:
-            pass
-    else:
-        try: 
-            user_id = message.from_user.id
-            user = message.from_user
-            user_name = user.first_name or user.last_name or (user.username and f"@{user.username}") or "USER"
-
-            add_user(user_id)
-            bot_username = BOT_USERNAME
-
-            # --- Token-based authorization ---
-            if len(message.command) == 2 and message.command[1].startswith("token_"):
-                if is_token_valid(message.command[1][6:], user_id):
-                    authorize_user(user_id)
-                    reply_msg = await safe_api_call(message.reply_text("✅ You are now authorized to access files for 24 hours."))
-                    await safe_api_call(bot.send_message(LOG_CHANNEL_ID, f"✅ User <b>{user_name}</b> (<code>{user.id}</code>) authorized via token."))
-                else:
-                    reply_msg = await safe_api_call(message.reply_text("❌ Invalid or expired token. Please get a new link."))
-
-            # --- File access via deep link ---
-            elif len(message.command) == 2 and message.command[1].startswith("file_"):
-                # Check if user is authorized, but skip for OWNER_ID
-                if user_id != OWNER_ID and not is_user_authorized(user_id):
-                    now = datetime.now(timezone.utc)
-                    token_doc = tokens_col.find_one({
-                        "user_id": user_id,
-                        "expiry": {"$gt": now}
-                    })
-                    token_id = token_doc["token_id"] if token_doc else generate_token(user_id)
-                    short_link = shorten_url(get_token_link(token_id, bot_username))
-                    reply_msg = await safe_api_call(message.reply_text(
-                        "❌ You are not authorized\n"
-                        "Please use this link to get access for 24 hours:",
-                        reply_markup=InlineKeyboardMarkup(
-                        [[InlineKeyboardButton("Get Access Link", url=short_link)]]
-                        )
-                    ))
-                elif user_id != OWNER_ID and user_file_count[user_id] >= MAX_FILES_PER_SESSION:
-                    reply_msg = await safe_api_call(message.reply_text("❌ You have reached the maximum of 10 files per session."))
-                else:
-                    # Decode file link and send file
-                    try: 
-                        b64 = message.command[1][5:]
-                        padding = '=' * (-len(b64) % 4)
-                        decoded = base64.urlsafe_b64decode(b64 + padding).decode()
-                        channel_id_str, msg_id_str = decoded.split("_")
-                        channel_id = int(channel_id_str)
-                        msg_id = int(msg_id_str)
-                        file_doc = files_col.find_one({"channel_id": channel_id, "message_id": msg_id})
-                        if not file_doc:
-                            reply_msg = await safe_api_call(message.reply_text("File not found."))
-                        else:
-                            reply_msg = await safe_api_call(client.copy_message(
-                                chat_id=message.chat.id,
-                                from_chat_id=file_doc["channel_id"],
-                                message_id=file_doc["message_id"]
-                            ))
-                            user_file_count[user_id] += 1
-                    except Exception as e:
-                        reply_msg = await safe_api_call(message.reply_text(f"Failed to send file: {e}"))
-            # --- Default greeting ---
-            else:
-                reply_msg = await safe_api_call(
-                    message.reply_text(
-                    f"<b>Welcome, {user_name}!</b>\n\n"
-                    f"<b>Just send your search query and get instant answers</b>\n\n"
-                    f"<b>Need help?</b> Contact: {SUPPORT}",
-                    reply_markup=InlineKeyboardMarkup(
-                        [
-                        [InlineKeyboardButton("Updates Channel", url=f"{UPDATE_CHANNEL_LINK}")]
-                        ]
-                    ),
-                    parse_mode=enums.ParseMode.HTML
-                    )
-                )
-        except Exception as e:
-            reply_msg = await safe_api_call(message.reply_text(f"⚠️ An unexpected error occurred: {e}"))
+    except Exception as e:
+        reply_msg = await safe_api_call(message.reply_text(f"⚠️ An unexpected error occurred: {e}"))
 
     if reply_msg:
         bot.loop.create_task(auto_delete_message(message, reply_msg))
@@ -743,6 +728,10 @@ async def send_file_callback(client, callback_query: CallbackQuery):
             await callback_query.answer("Access link sent in your chat.", show_alert=True)
             bot.loop.create_task(delete_after_delay(reply))
             return
+        if user_id != OWNER_ID and user_file_count[user_id] >= MAX_FILES_PER_SESSION:
+            await callback_query.answer("Limit reached take rest for some time")
+            return
+        
         padding = '=' * (-len(file_link) % 4)
         decoded = base64.urlsafe_b64decode(file_link + padding).decode()
         channel_id_str, msg_id_str = decoded.split("_")
@@ -752,59 +741,67 @@ async def send_file_callback(client, callback_query: CallbackQuery):
         if not file_doc:
             await callback_query.answer("File not found.", show_alert=True)
             return
-        await client.copy_message(
+        send_file = await client.copy_message(
             chat_id=user_id,
             from_chat_id=file_doc["channel_id"],
             message_id=file_doc["message_id"]
         )
-        await callback_query.answer(f"File sent in chat, {user_name}.", show_alert=True)
+        await callback_query.answer(
+        f"📩 File sent in PM to {user_name}. It will be deleted in 5 minutes — forward it to your Saved Messages or private chat to keep it."
+        )
+        bot.loop.create_task(delete_after_delay(send_file))
     except Exception as e:
         await callback_query.answer(f"Failed: {e}", show_alert=True)
 
-@bot.on_message(filters.chat(GROUP_ID) & filters.service)
-async def delete_service_messages(client, message):
+@bot.on_message(filters.chat(GROUP_ID))
+async def group_message_handler(client, message):
     try:
-        # Greet new members and guide them to use /search
+        # 1. Greet new members
         if message.new_chat_members:
             for user in message.new_chat_members:
                 try:
+                    user_name = user.first_name or "there"
+                    welcome_text = (
+                        f"👋 <b>Welcome, {user_name}!</b>\n\n"
+                        f"I'm your search assistant bot 🤖 here to help you find and access files quickly.\n\n"
+                        f"📌 <b>How to use me:</b>\n"
+                        f"Just type the name or title of the file you're looking for — no commands needed!\n"
+                        f"Example: <code>John Wick</code>, <code>Excel Tutorial</code>\n\n"
+                        f"I’ll show you categories to pick from and fetch your file. 🔎\n\n"
+                        f"⚠️ Some files require access. If prompted, tap the access link and follow the instructions to unlock it for 24 hours.\n\n"
+                        f"Need help? Just ask here {SUPPORT} 🚀"
+                    )
+
                     reply = await message.reply_text(
-                        f"<b>Welcome, {user.first_name}!</b>\n",
+                        welcome_text,
                         parse_mode=enums.ParseMode.HTML,
                         reply_markup=InlineKeyboardMarkup(
                             [
-                                [InlineKeyboardButton("Updates Channel", url=f"{UPDATE_CHANNEL_LINK}")]
+                                [InlineKeyboardButton("📢 Updates Channel", url=UPDATE_CHANNEL_LINK)]
                             ]
                         )
                     )
+
+                    # Auto-delete service message + welcome message
                     if reply:
                         bot.loop.create_task(auto_delete_message(message, reply))
+
                 except Exception as e:
                     logger.error(f"Failed to greet new member: {e}")
-    except Exception as e:
-        logger.error(f"Failed to delete service message: {e}")
 
-@bot.on_message(filters.chat(GROUP_ID) & ~filters.service & ~filters.bot)
-async def group_auto_reply_and_delete(client, message):
-    try:
-        # Compose welcome message (same as service message greeting)
-        user = message.from_user
-        user_name = user.first_name if user else "User"
-        reply = await message.reply_text(
-            f"<b>Welcome, {user_name}!</b>\n",
-            parse_mode=enums.ParseMode.HTML,
-            reply_markup=InlineKeyboardMarkup(
-                [
-                    [InlineKeyboardButton("Updates Channel", url=f"{UPDATE_CHANNEL_LINK}")]
-                ]
-            )
-        )
-        # Optionally delete the bot's reply after some time (same as your bot.loop.create_task)
-        if reply:
-            bot.loop.create_task(auto_delete_message(message, reply))
-        # Delete the user's original message
+        # 2. Delete media messages from users (except from the bot or admins)
+        elif message.media:
+            # Optional: Skip bot/admins if needed
+            if not message.from_user or message.from_user.is_bot:
+                return
+
+            try:
+                await message.delete()
+            except Exception as e:
+                logger.warning(f"Failed to delete media message: {e}")
+
     except Exception as e:
-        logger.error(f"Failed to reply and delete message: {e}")
+        logger.error(f"Error in group_message_handler: {e}")
 
 @bot.on_message(filters.command("chatop") & filters.private & filters.user(OWNER_ID))
 async def chatop_handler(client, message: Message):

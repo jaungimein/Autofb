@@ -164,7 +164,7 @@ async def start_handler(client, message):
             reply_msg = await safe_api_call(
                 message.reply_text(
                 f"<b>Welcome, {user_name}!</b>\n\n"
-                f"<b>This bot used to manage TG⚡️FLIX</b>\n\n"
+                f"<b>This bot is used to manage TG⚡️FLIX</b>\n\n"
                 f"<b>Need help?</b> Contact: {SUPPORT}",
                 reply_markup=InlineKeyboardMarkup(
                     [

@@ -746,9 +746,10 @@ async def send_file_callback(client, callback_query: CallbackQuery):
             from_chat_id=file_doc["channel_id"],
             message_id=file_doc["message_id"]
         )
+        user_file_count[user_id] += 1
         await callback_query.answer(
-        f"📩 File sent in PM to {user_name}. It will be deleted in 5 minutes — forward it to your Saved Messages or private chat to keep it."
-        )
+        f"📩 File sent in PM to {user_name}. It will be deleted in 5 minutes — forward it to your Saved Messages or private chat to keep it.", 
+        show_alert=True)
         bot.loop.create_task(delete_after_delay(send_file))
     except Exception as e:
         await callback_query.answer(f"Failed: {e}", show_alert=True)

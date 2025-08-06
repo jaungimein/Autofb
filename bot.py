@@ -161,12 +161,10 @@ async def start_handler(client, message):
         else:
             welcome_text = (
                             f"👋 <b>Welcome, {user_link}!</b>\n\n"
-                            f"I'm your search assistant bot 🤖 here to help you find and access files quickly.\n\n"
+                            f"I'm a Auto Filter Bot 🤖\n\n"
                             f"📌 <b>How to use me:</b>\n"
                             f"Just type the name or title of the file you're looking for — no commands needed!\n"
                             f"Example: <code>John Wick</code>, <code>Excel Tutorial</code>\n\n"
-                            f"I’ll show you categories to pick from and fetch your file. 🔎\n\n"
-                            f"⚠️ Some files require access. If prompted, tap the access link and follow the instructions to unlock it for 24 hours.\n\n"
                             f"Need help? Just ask here {SUPPORT} 🚀"
                             )
 
@@ -438,7 +436,7 @@ async def broadcast_handler(client, message: Message):
                 continue
              await asyncio.sleep(3)
 
-        await message.reply_text(f"✅ Broadcasted replied message to {total} users.\n❌ Failed: {failed}\n🗑️ Removed: {removed}")
+        await message.reply_text(f"✅ Broadcasted to {total} users.\n❌ Failed: {failed}\n🗑️ Removed: {removed}")
                                                                                                 
 
 @bot.on_message(filters.command("log") & filters.private & filters.user(OWNER_ID))
@@ -615,7 +613,8 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
             f"<b>🕵🏻‍♂️ Query: <code>{query}</b></code>\n"
             f"<b>🛒 Category:</b> {channel_name}\n"
             f"<b>❌ No files found</b>.\n\n"            
-            f"📝 <i>Tip: Double-check your spelling or try searching the title on <a href='https://www.google.com/search?q={quote_plus(query)}'>Google</a>.</i>",
+            f"📝 <i>Tip: Double-check your spelling or try searching the title on <a href='https://www.google.com/search?q={quote_plus(query)}'>Google</a>.</i>"
+            f"<b>❓ What's available check here {UPDATE_CHANNEL_LINK}</b>",
             parse_mode=enums.ParseMode.HTML,
             disable_web_page_preview=True
         )
@@ -637,7 +636,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     for f in files:
         file_link = encode_file_link(f["channel_id"], f["message_id"])
         size_str = human_readable_size(f.get('file_size', 0))
-        btn_text = f"{size_str} ✨ {f.get('file_name')}"
+        btn_text = f"{size_str} 🔰 {f.get('file_name')}"
         buttons.append([
             InlineKeyboardButton(
                 btn_text,
@@ -673,7 +672,7 @@ async def send_file_callback(client, callback_query: CallbackQuery):
     file_link = callback_query.matches[0].group(1)
     user_id = callback_query.from_user.id
     try:
-        if not is_user_authorized(user_id):
+        if user_id != OWNER_ID and not is_user_authorized(user_id):
             now = datetime.now(timezone.utc)
             token_doc = tokens_col.find_one({
                 "user_id": user_id,
@@ -685,7 +684,7 @@ async def send_file_callback(client, callback_query: CallbackQuery):
                 chat_id=user_id,
                 text=(
                     "🎉 Just one step away!\n\n"
-                    "To access this file, please contribute a little by clicking the link below. "
+                    "To access files, please contribute a little by clicking the link below. "
                     "It’s completely free for you — and it helps keep the bot running by supporting the server costs. ❤️\n\n"
                     "Click below to get 24-hour access:"
                 ),

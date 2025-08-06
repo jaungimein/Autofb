@@ -673,7 +673,7 @@ async def send_file_callback(client, callback_query: CallbackQuery):
     file_link = callback_query.matches[0].group(1)
     user_id = callback_query.from_user.id
     try:
-        if user_id != OWNER_ID and not is_user_authorized(user_id):
+        if not is_user_authorized(user_id):
             now = datetime.now(timezone.utc)
             token_doc = tokens_col.find_one({
                 "user_id": user_id,

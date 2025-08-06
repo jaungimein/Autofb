@@ -25,7 +25,7 @@ from utility import (
     queue_file_for_processing, file_queue_worker,
     file_queue, extract_tmdb_link, periodic_expiry_cleanup,
     restore_tmdb_photos, build_search_pipeline,
-    format_user_name,delete_after_delay
+    get_user_link, delete_after_delay
 )
 from db import (db, users_col, 
                 tokens_col, 
@@ -104,9 +104,7 @@ async def start_handler(client, message):
     reply_msg = None  
     try: 
         user_id = message.from_user.id
-        user = message.from_user
-        user_name = user.first_name or user.last_name or (user.username and f"@{user.username}") or "USER"
-
+        user_link = await get_user_link(message.from_user) 
         add_user(user_id)
         bot_username = BOT_USERNAME
 
@@ -115,7 +113,7 @@ async def start_handler(client, message):
             if is_token_valid(message.command[1][6:], user_id):
                 authorize_user(user_id)
                 reply_msg = await safe_api_call(message.reply_text("✅ You are now authorized to access files for 24 hours."))
-                await safe_api_call(bot.send_message(LOG_CHANNEL_ID, f"✅ User <b>{user_name}</b> (<code>{user.id}</code>) authorized via token."))
+                await safe_api_call(bot.send_message(LOG_CHANNEL_ID, f"✅ User <b>{user_link}</b> authorized via token."))
             else:
                 reply_msg = await safe_api_call(message.reply_text("❌ Invalid or expired token. Please get a new link."))
 
@@ -162,11 +160,19 @@ async def start_handler(client, message):
                     reply_msg = await safe_api_call(message.reply_text(f"Failed to send file: {e}"))
         # --- Default greeting ---
         else:
+            welcome_text = (
+                            f"👋 <b>Welcome, {user_link}!</b>\n\n"
+                            f"I'm your search assistant bot 🤖 here to help you find and access files quickly.\n\n"
+                            f"📌 <b>How to use me:</b>\n"
+                            f"Just type the name or title of the file you're looking for — no commands needed!\n"
+                            f"Example: <code>John Wick</code>, <code>Excel Tutorial</code>\n\n"
+                            f"I’ll show you categories to pick from and fetch your file. 🔎\n\n"
+                            f"⚠️ Some files require access. If prompted, tap the access link and follow the instructions to unlock it for 24 hours.\n\n"
+                            f"Need help? Just ask here {SUPPORT} 🚀"
+                            )
+
             reply_msg = await safe_api_call(
-                message.reply_text(
-                f"<b>Welcome, {user_name}!</b>\n\n"
-                f"<b>This bot is used to manage TG⚡️FLIX</b>\n\n"
-                f"<b>Need help?</b> Contact: {SUPPORT}",
+                message.reply_text(welcome_text,
                 reply_markup=InlineKeyboardMarkup(
                     [
                     [InlineKeyboardButton("Updates Channel", url=f"{UPDATE_CHANNEL_LINK}")]
@@ -539,15 +545,13 @@ async def tmdb_command(client, message):
         await safe_api_call(message.reply_text(f"Error in tmdb command: {e}"))
     await message.delete()
 
-@bot.on_message(filters.chat(GROUP_ID) & filters.text & ~filters.command([
+# Handles incoming text messages in private chat that aren't commands
+@bot.on_message(filters.private & filters.text & ~filters.command([
     "start", "stats", "add", "rm", "broadcast", "log", "tmdb", 
     "restore", "index", "del", "restart", "chatop"]))
 async def instant_search_handler(client, message):
     reply = None
-    user_name = format_user_name(message.from_user)
-    try:
-        if contains_url(message.text):
-            return
+    try: 
         query = sanitize_query(message.text)
         query_id = store_query(query)
         if not query:
@@ -555,20 +559,18 @@ async def instant_search_handler(client, message):
 
         channels = list(allowed_channels_col.find({}, {"_id": 0, "channel_id": 1, "channel_name": 1}))
         if not channels:
-            reply = await safe_api_call(message.reply_text(f"No allowed channels available for search, {user_name}."))
+            reply = await safe_api_call(message.reply_text(f"No allowed channels available for search."))
             return
 
         # Show channel selection buttons
         text = (f"<b>🕵🏻‍♂️ Query:</b> {query}\n"
-                f"<b>👤 User:</b> {user_name}\n"
-                f"<b>✅ Select a Cateogry</b>"
+                f"<b>✅ Select a Category</b>"
                 )
         buttons = []
         for c in channels:
             chan_id = c["channel_id"]
             chan_name = c.get("channel_name", str(chan_id))
-            data = f"search_channel:{query_id}:{chan_id}:1:{message.from_user.id}"
-            # Callback data includes query and channel_id, page=1
+            data = f"search_channel:{query_id}:{chan_id}:1"
             buttons.append([
                 InlineKeyboardButton(
                     chan_name,
@@ -585,27 +587,21 @@ async def instant_search_handler(client, message):
         )
     except Exception as e:
         logger.error(f"Error in instant_search_handler: {e}")
-        user_name = format_user_name(message.from_user)
-        reply = await message.reply_text(f"Invalid search query, {user_name}. Please try again with a different query.")
+        reply = await message.reply_text(f"Invalid search query. Please try again with a different query.")
     if reply:
         bot.loop.create_task(auto_delete_message(message, reply))
 
 
-@bot.on_callback_query(filters.regex(r"^search_channel:(.+):(-?\d+):(\d+):(\d+)$"))
+# Callback handler when user selects a channel to search in
+@bot.on_callback_query(filters.regex(r"^search_channel:(.+):(-?\d+):(\d+)$"))
 async def channel_search_callback_handler(client, callback_query: CallbackQuery):
-    """
-    Handles user's channel selection for search with pagination.
-    Performs the search only in the selected channel and displays paged results.
-    """
     query_id = callback_query.matches[0].group(1)
     query = get_query_by_id(query_id)
     channel_id = int(callback_query.matches[0].group(2))
     page = int(callback_query.matches[0].group(3))
-    original_user_id = int(callback_query.matches[0].group(4))
-    current_user_id = callback_query.from_user.id
     query = sanitize_query(unquote_plus(query))
     skip = (page - 1) * SEARCH_PAGE_SIZE
-    user_name = format_user_name(callback_query.from_user)
+    user_link = await get_user_link(callback_query.from_user)
 
     pipeline = build_search_pipeline(query, [channel_id], skip, SEARCH_PAGE_SIZE)
     result = list(files_col.aggregate(pipeline))
@@ -615,34 +611,26 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     channel_info = allowed_channels_col.find_one({'channel_id': channel_id})
     channel_name = channel_info.get('channel_name', str(channel_id)) if channel_info else str(channel_id)
 
-    if current_user_id != original_user_id:
-        await callback_query.answer("❌ Only the original requester can use these buttons.", show_alert=True)
-        return
-
     if not files:
         await callback_query.edit_message_text(
             f"<b>🕵🏻‍♂️ Query: <code>{query}</b></code>\n"
-            f"<b>🛒 Cateogry:</b> {channel_name}\n"
-            f"<b>👤 User:</b> {user_name}\n"
+            f"<b>🛒 Category:</b> {channel_name}\n"
             f"<b>❌ No files found</b>.\n\n"            
             f"📝 <i>Tip: Double-check your spelling or try searching the title on <a href='https://www.google.com/search?q={quote_plus(query)}'>Google</a>.</i>",
             parse_mode=enums.ParseMode.HTML,
             disable_web_page_preview=True
         )
-        # Send to log channel with the query and user id
-        user_id = callback_query.from_user.id
         await bot.send_message(
             LOG_CHANNEL_ID, 
-            f"🔎 No result for query:\n<code>{query}</code> in <b>{channel_name}</b>\nUser: {user_name}\nUser ID: <code>{user_id}</code>"
+            f"🔎 No result for query:\n<code>{query}</code> in <b>{channel_name}</b>\nUser: {user_link}"
         )
         await callback_query.answer()
         return
-    
+
     total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE
     text = (
         f"<b>🕵🏻‍♂️ Query: <code>{query}</b></code>\n"
-        f"<b>🛒 Cateogry:</b> {channel_name}\n"
-        f"<b>👤 User:</b> {user_name}\n"
+        f"<b>🛒 Category:</b> {channel_name}\n"
         f"<b>📂 Found:</b> {total_files} files\n"
         f"<b>📖 Page:</b> {page} | {total_pages}\n"
     )
@@ -651,33 +639,21 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
         file_link = encode_file_link(f["channel_id"], f["message_id"])
         size_str = human_readable_size(f.get('file_size', 0))
         btn_text = f"{size_str} ✨ {f.get('file_name')}"
-        # Add user_id to callback_data
         buttons.append([
             InlineKeyboardButton(
                 btn_text,
-                callback_data=f"getfile:{file_link}:{callback_query.from_user.id}"
+                callback_data=f"getfile:{file_link}"
             )
         ])
 
-    # Pagination controls
+    # Pagination
     page_buttons = []
-
     if page > 1:
-        prev_data = f"search_channel:{query_id}:{channel_id}:{page-1}:{original_user_id}"
-        page_buttons.append(
-            InlineKeyboardButton(
-                "⬅️ Prev",
-                callback_data=prev_data
-            )
-        )
+        prev_data = f"search_channel:{query_id}:{channel_id}:{page - 1}"
+        page_buttons.append(InlineKeyboardButton("⬅️ Prev", callback_data=prev_data))
     if page < total_pages:
-        next_data = f"search_channel:{query_id}:{channel_id}:{page+1}:{original_user_id}"
-        page_buttons.append(
-            InlineKeyboardButton(
-                "➡️ Next",
-                callback_data=next_data
-            )
-        )
+        next_data = f"search_channel:{query_id}:{channel_id}:{page + 1}"
+        page_buttons.append(InlineKeyboardButton("➡️ Next", callback_data=next_data))
 
     reply_markup = InlineKeyboardMarkup(buttons + ([page_buttons] if page_buttons else []))
 
@@ -691,25 +667,15 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
         pass
     await callback_query.answer()
 
-@bot.on_callback_query(filters.regex(r"^getfile:(.+):(\d+)$"))
+
+# Callback handler to send file to user
+@bot.on_callback_query(filters.regex(r"^getfile:(.+)$"))
 async def send_file_callback(client, callback_query: CallbackQuery):
     file_link = callback_query.matches[0].group(1)
-    allowed_user_id = int(callback_query.matches[0].group(2))
     user_id = callback_query.from_user.id
-    user = callback_query.from_user
-    user_name = user.first_name
-    if user.last_name:
-        user_name += f" {user.last_name}"
-    if user.username:
-        user_name += f" (@{user.username})"
+    user_link = await get_user_link(callback_query.from_user)
     try:
-        if user_id != allowed_user_id:
-            await callback_query.answer(
-                f"❌ Only the original requester ({user_name}) can access this file.",
-                show_alert=True
-            )
-            return
-        if user_id != OWNER_ID and not is_user_authorized(user_id):
+        if not is_user_authorized(user_id):
             now = datetime.now(timezone.utc)
             token_doc = tokens_col.find_one({
                 "user_id": user_id,
@@ -719,30 +685,31 @@ async def send_file_callback(client, callback_query: CallbackQuery):
             short_link = shorten_url(get_token_link(token_id, BOT_USERNAME))
             reply = await bot.send_message(
                 chat_id=user_id,
-                text=(
-                    f"❌ {user_name}, you are not authorized to access this file.\n\n"
-                    "Please use this link to get access for 24 hours:"
-                ),
+                text=(f"❌ {user_link}, you are not authorized to access this file.\n\n"
+                      "Please use this link to get access for 24 hours:"),
                 reply_markup=InlineKeyboardMarkup(
                     [[InlineKeyboardButton("🔓 Get Access Link", url=short_link)]]
                 )
             )
-            await callback_query.answer("Access link sent in your chat.", show_alert=True)
+            await callback_query.answer("Access link sent in your chat.")
             bot.loop.create_task(delete_after_delay(reply))
             return
-        if user_id != OWNER_ID and user_file_count[user_id] >= MAX_FILES_PER_SESSION:
-            await callback_query.answer("Limit reached take rest for some time", show_alert=True)
+
+        if user_file_count[user_id] >= MAX_FILES_PER_SESSION:
+            await callback_query.answer("Limit reached. Please take a break.", show_alert=True)
             return
-        
+
         padding = '=' * (-len(file_link) % 4)
         decoded = base64.urlsafe_b64decode(file_link + padding).decode()
         channel_id_str, msg_id_str = decoded.split("_")
         channel_id = int(channel_id_str)
         msg_id = int(msg_id_str)
+
         file_doc = files_col.find_one({"channel_id": channel_id, "message_id": msg_id})
         if not file_doc:
             await callback_query.answer("File not found.", show_alert=True)
             return
+
         send_file = await client.copy_message(
             chat_id=user_id,
             from_chat_id=file_doc["channel_id"],
@@ -750,49 +717,10 @@ async def send_file_callback(client, callback_query: CallbackQuery):
         )
         user_file_count[user_id] += 1
         await callback_query.answer(
-        f"📩 File sent in PM to {user_name}. It will be deleted in 5 minutes — forward it to your Saved Messages or private chat to keep it.", 
-        show_alert=True)
+            f"File will be auto deleted in 5 minutes — forward it.")
         bot.loop.create_task(delete_after_delay(send_file))
     except Exception as e:
         await callback_query.answer(f"Failed: {e}", show_alert=True)
-
-@bot.on_message(filters.chat(GROUP_ID) & filters.service)
-async def group_message_handler(client, message):
-    try:
-        # 1. Greet new members
-        if message.new_chat_members:
-            for user in message.new_chat_members:
-                try:
-                    user_name = user.first_name or "there"
-                    welcome_text = (
-                        f"👋 <b>Welcome, {user_name}!</b>\n\n"
-                        f"I'm your search assistant bot 🤖 here to help you find and access files quickly.\n\n"
-                        f"📌 <b>How to use me:</b>\n"
-                        f"Just type the name or title of the file you're looking for — no commands needed!\n"
-                        f"Example: <code>John Wick</code>, <code>Excel Tutorial</code>\n\n"
-                        f"I’ll show you categories to pick from and fetch your file. 🔎\n\n"
-                        f"⚠️ Some files require access. If prompted, tap the access link and follow the instructions to unlock it for 24 hours.\n\n"
-                        f"Need help? Just ask here {SUPPORT} 🚀"
-                    )
-
-                    reply = await message.reply_text(
-                        welcome_text,
-                        parse_mode=enums.ParseMode.HTML,
-                        reply_markup=InlineKeyboardMarkup(
-                            [
-                                [InlineKeyboardButton("📢 Updates Channel", url=UPDATE_CHANNEL_LINK)]
-                            ]
-                        )
-                    )
-
-                    # Auto-delete service message + welcome message
-                    if reply:
-                        bot.loop.create_task(auto_delete_message(message, reply))
-                except Exception as e:
-                    logger.error(f"Failed to greet new member: {e}")
-        bot.loop.create_task(delete_after_delay(message))
-    except Exception as e:
-        logger.error(f"Error in group_message_handler: {e}")
 
 @bot.on_message(filters.command("chatop") & filters.private & filters.user(OWNER_ID))
 async def chatop_handler(client, message: Message):

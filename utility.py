@@ -8,7 +8,7 @@ import requests
 from datetime import datetime, timezone, timedelta
 from pyrogram.errors import FloodWait
 from pyrogram import enums
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, User
 from db import (
     allowed_channels_col,
     users_col,
@@ -180,16 +180,20 @@ def is_user_authorized(user_id):
         return False
     return True
 
-def format_user_name(user):
-    if not user:
-        return "User"
+async def get_user_link(user: User) -> str:
+    try:
+        user_id = user.id if hasattr(user, 'id') else None
+        first_name = user.first_name if hasattr(user, 'first_name') else "Unknown"
+    except Exception as e:
+        logger.info(f"{e}")
+        user_id = None
+        first_name = "Unknown"
     
-    full_name = user.first_name or ""
-    if user.last_name:
-        full_name += f" {user.last_name}"
-    if user.username:
-        full_name += f" (@{user.username})"
-    return full_name.strip() or "User"
+    if user_id:
+        return f'<a href=tg://user?id={user_id}>{first_name}</a>'
+    else:
+        return first_name
+    
 # =========================
 # Token Utilities
 # =========================
@@ -393,9 +397,9 @@ async def delete_after_delay(message):
         pass
 
 async def auto_delete_message(user_message, bot_message):
-    try:
-        await safe_api_call(user_message.delete())
+    try:        
         await asyncio.sleep(AUTO_DELETE_SECONDS)
+        await safe_api_call(user_message.delete())
         await safe_api_call(bot_message.delete())
     except Exception as e:
         pass

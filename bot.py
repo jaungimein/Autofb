@@ -11,9 +11,8 @@ from datetime import datetime, timezone
 from collections import defaultdict
 
 from pyrogram import Client, enums, filters
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
-from pyrogram.types import ChatPermissions
-from pyrogram.errors import ListenerTimeout, RPCError
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, BotCommand
+from pyrogram.errors import ListenerTimeout
 import uvicorn
 
 from config import *
@@ -673,9 +672,8 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
 async def send_file_callback(client, callback_query: CallbackQuery):
     file_link = callback_query.matches[0].group(1)
     user_id = callback_query.from_user.id
-    user_link = await get_user_link(callback_query.from_user)
     try:
-        if not is_user_authorized(user_id):
+        if user_id != OWNER_ID and not is_user_authorized(user_id):
             now = datetime.now(timezone.utc)
             token_doc = tokens_col.find_one({
                 "user_id": user_id,
@@ -685,17 +683,21 @@ async def send_file_callback(client, callback_query: CallbackQuery):
             short_link = shorten_url(get_token_link(token_id, BOT_USERNAME))
             reply = await bot.send_message(
                 chat_id=user_id,
-                text=(f"❌ {user_link}, you are not authorized to access this file.\n\n"
-                      "Please use this link to get access for 24 hours:"),
+                text=(
+                    "🎉 Just one step away!\n\n"
+                    "To access this file, please contribute a little by clicking the link below. "
+                    "It’s completely free for you — and it helps keep the bot running by supporting the server costs. ❤️\n\n"
+                    "Click below to get 24-hour access:"
+                ),
                 reply_markup=InlineKeyboardMarkup(
                     [[InlineKeyboardButton("🔓 Get Access Link", url=short_link)]]
                 )
             )
-            await callback_query.answer("Access link sent in your chat.")
+            await callback_query.answer("Access link sent")
             bot.loop.create_task(delete_after_delay(reply))
             return
 
-        if user_file_count[user_id] >= MAX_FILES_PER_SESSION:
+        if user_id != OWNER_ID and user_file_count[user_id] >= MAX_FILES_PER_SESSION:
             await callback_query.answer("Limit reached. Please take a break.", show_alert=True)
             return
 
@@ -766,7 +768,9 @@ async def main():
     """
     # Set bot commands
     await bot.start()
-    await bot.set_bot_commands([])
+    await bot.set_bot_commands([
+        BotCommand("start", "Start the bot")
+    ])
     
     bot.loop.create_task(start_fastapi())
     bot.loop.create_task(file_queue_worker(bot))  # Start the queue worker

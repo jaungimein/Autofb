@@ -539,8 +539,8 @@ async def tmdb_command(client, message):
     await message.delete()
 
 @bot.on_message(filters.chat(GROUP_ID) & filters.text & ~filters.command([
-    "start", "stats", "add", "rm", "broadcast", "log", "tmdb", "restore", "index", "del", "restart", "chatop"
-]))
+    "start", "stats", "add", "rm", "broadcast", "log", "tmdb", 
+    "restore", "index", "del", "restart", "chatop", "lock", "unlock"]))
 async def instant_search_handler(client, message):
     reply = None
     user_name = format_user_name(message.from_user)

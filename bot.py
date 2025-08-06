@@ -755,7 +755,7 @@ async def send_file_callback(client, callback_query: CallbackQuery):
     except Exception as e:
         await callback_query.answer(f"Failed: {e}", show_alert=True)
 
-@bot.on_message(filters.chat(GROUP_ID) & ~filters.command())
+@bot.on_message(filters.chat(GROUP_ID) & ~filters.command(["lock", "unlock"]))
 async def group_message_handler(client, message):
     try:
         # 1. Greet new members

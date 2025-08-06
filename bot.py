@@ -729,7 +729,7 @@ async def send_file_callback(client, callback_query: CallbackQuery):
             bot.loop.create_task(delete_after_delay(reply))
             return
         if user_id != OWNER_ID and user_file_count[user_id] >= MAX_FILES_PER_SESSION:
-            await callback_query.answer("Limit reached take rest for some time")
+            await callback_query.answer("Limit reached take rest for some time", show_alert=True)
             return
         
         padding = '=' * (-len(file_link) % 4)

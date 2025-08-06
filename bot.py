@@ -613,7 +613,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
             f"<b>🕵🏻‍♂️ Query: <code>{query}</b></code>\n"
             f"<b>🛒 Category:</b> {channel_name}\n"
             f"<b>❌ No files found</b>.\n\n"            
-            f"📝 <i>Tip: Double-check your spelling or try searching the title on <a href='https://www.google.com/search?q={quote_plus(query)}'>Google</a>.</i>"
+            f"📝 <i>Tip: Double-check your spelling or try searching the title on <a href='https://www.google.com/search?q={quote_plus(query)}'>Google</a>.</i>\n"
             f"<b>❓ What's available? Check <a href='{UPDATE_CHANNEL_LINK}'>here</a>.</b>",
             parse_mode=enums.ParseMode.HTML,
             disable_web_page_preview=True

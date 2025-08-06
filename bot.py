@@ -540,7 +540,7 @@ async def tmdb_command(client, message):
 
 @bot.on_message(filters.chat(GROUP_ID) & filters.text & ~filters.command([
     "start", "stats", "add", "rm", "broadcast", "log", "tmdb", 
-    "restore", "index", "del", "restart", "chatop", "lock", "unlock"]))
+    "restore", "index", "del", "restart", "chatop"]))
 async def instant_search_handler(client, message):
     reply = None
     user_name = format_user_name(message.from_user)
@@ -755,7 +755,7 @@ async def send_file_callback(client, callback_query: CallbackQuery):
     except Exception as e:
         await callback_query.answer(f"Failed: {e}", show_alert=True)
 
-@bot.on_message(filters.chat(GROUP_ID) & ~filters.command(["lock", "unlock"]))
+@bot.on_message(filters.chat(GROUP_ID) & filters.service)
 async def group_message_handler(client, message):
     try:
         # 1. Greet new members
@@ -787,21 +787,9 @@ async def group_message_handler(client, message):
                     # Auto-delete service message + welcome message
                     if reply:
                         bot.loop.create_task(auto_delete_message(message, reply))
-
                 except Exception as e:
                     logger.error(f"Failed to greet new member: {e}")
-
-        # 2. Delete media messages from users (except from the bot or admins)
-        elif message.media:
-            # Optional: Skip bot/admins if needed
-            if not message.from_user or message.from_user.is_bot:
-                return
-
-            try:
-                await message.delete()
-            except Exception as e:
-                logger.warning(f"Failed to delete media message: {e}")
-
+        bot.loop.create_task(delete_after_delay(message))
     except Exception as e:
         logger.error(f"Error in group_message_handler: {e}")
 
@@ -838,45 +826,7 @@ async def chatop_handler(client, message: Message):
             await message.reply_text(f"❌ Failed: {e}")
     else:
         await message.reply_text("Invalid operation. Use 'send' or 'del'.")
-
-@bot.on_message(filters.command("lock") & filters.chat(GROUP_ID))
-async def lock_group(client, message):
-    if message.from_user.id != OWNER_ID:
-        return await message.reply_text("❌ Only the bot owner can use this command.")
-
-    try:
-        await client.set_chat_permissions(
-            chat_id=message.chat.id,
-            permissions=ChatPermissions()  # No permissions = fully locked
-        )
-        await message.reply_text("🔒 Group has been locked. Members can't send messages.")
-        await message.delete()
-    except RPCError as e:
-        await message.reply_text(f"⚠️ Failed to lock group: {e}")
-
-
-@bot.on_message(filters.command("unlock") & filters.chat(GROUP_ID))
-async def unlock_group(client, message):
-    if message.from_user.id != OWNER_ID:
-        return await message.reply_text("❌ Only the bot owner can use this command.")
-
-    try:
-        await client.set_chat_permissions(
-            chat_id=message.chat.id,
-            permissions=ChatPermissions(
-                can_send_messages=True,
-                can_send_media_messages=True,
-                can_send_polls=True,
-                can_send_other_messages=True,
-                can_add_web_page_previews=True
-            )
-        )
-        await message.reply_text("🔓 Group has been unlocked. Members can now send messages.")
-        await message.delete()
-    except RPCError as e:
-        await message.reply_text(f"⚠️ Failed to unlock group: {e}")
-
-
+        
 # =========================
 # Main Entrypoint
 # =========================

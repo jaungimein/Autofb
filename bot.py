@@ -555,8 +555,7 @@ async def instant_search_handler(client, message):
             return
 
         # Show channel selection buttons
-        text = (f"<b>🕵🏻‍♂️ Query:</b> {query}\n"
-                f"<b>👤 User:</b> {user_link}\n"
+        text = (f"<b>👤 User:</b> {user_link}\n"
                 f"<b>✅ Select a Category</b>"
                 )
         buttons = []
@@ -612,7 +611,6 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
 
     if not files:
         await callback_query.edit_message_text(
-            f"<b>🕵🏻‍♂️ Query: <code>{query}</b></code>\n"
             f"<b>🛒 Category:</b> {channel_name}\n"
             f"<b>👤 User:</b> {user_link}\n"
             f"<b>❌ No files found</b>.\n\n"            
@@ -630,7 +628,6 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
 
     total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE
     text = (
-        f"<b>🕵🏻‍♂️ Query: <code>{query}</b></code>\n"
         f"<b>🛒 Category:</b> {channel_name}\n"
         f"<b>👤 User:</b> {user_link}\n"
         f"<b>📂 Found:</b> {total_files} files\n"
@@ -729,7 +726,7 @@ async def send_file_callback(client, callback_query: CallbackQuery):
         )
         user_file_count[user_id] += 1
         await callback_query.answer(
-            f"File will be auto deleted in 5 minutes — forward it.")
+            f"File send in PM will be auto deleted in 5 minutes — forward it.")
         bot.loop.create_task(delete_after_delay(send_file))
     except Exception as e:
         await callback_query.answer(f"Failed: {e}", show_alert=True)

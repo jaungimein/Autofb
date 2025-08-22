@@ -160,13 +160,8 @@ async def start_handler(client, message):
         else:
             welcome_text = (
                             f"👋 <b>Welcome, {user_link}!</b>\n\n"
-                            f"I'm a Auto Filter Bot 🤖\n\n"
-                            f"📌 <b>How to use me:</b>\n"
-                            f"Just type the name or title of the file you're looking for — no commands needed!\n"
-                            f"Example: <code>John Wick</code>\n\n"
-                            f"Need help? Just ask here {SUPPORT} 🚀"
+                            f"I'm a Auto Filter Bot 🤖 used to manage request in a group."
                             )
-
             reply_msg = await safe_api_call(
                 message.reply_text(welcome_text,
                 reply_markup=InlineKeyboardMarkup(
@@ -542,11 +537,13 @@ async def tmdb_command(client, message):
     await message.delete()
 
 # Handles incoming text messages in private chat that aren't commands
-@bot.on_message(filters.private & filters.text & ~filters.command([
+@bot.on_message(filters.chat(GROUP_ID) & filters.text & ~filters.command([
     "start", "stats", "add", "rm", "broadcast", "log", "tmdb", 
     "restore", "index", "del", "restart", "chatop"]))
 async def instant_search_handler(client, message):
     reply = None
+    user_link = await get_user_link(message.from_user)
+    user_id = message.from_user.id or 1234
     try: 
         query = sanitize_query(message.text)
         query_id = store_query(query)
@@ -560,13 +557,14 @@ async def instant_search_handler(client, message):
 
         # Show channel selection buttons
         text = (f"<b>🕵🏻‍♂️ Query:</b> {query}\n"
+                f"<b>👤 User:</b> {user_link}\n"
                 f"<b>✅ Select a Category</b>"
                 )
         buttons = []
         for c in channels:
             chan_id = c["channel_id"]
             chan_name = c.get("channel_name", str(chan_id))
-            data = f"search_channel:{query_id}:{chan_id}:1"
+            data = f"search_channel:{query_id}:{chan_id}:1:{user_id}"
             buttons.append([
                 InlineKeyboardButton(
                     chan_name,
@@ -583,18 +581,20 @@ async def instant_search_handler(client, message):
         )
     except Exception as e:
         logger.error(f"Error in instant_search_handler: {e}")
-        reply = await message.reply_text(f"Invalid search query. Please try again with a different query.")
+        reply = await message.reply_text(f"Invalid search query, {user_link}. Please try again with a different query.")
     if reply:
         bot.loop.create_task(auto_delete_message(message, reply))
 
 
 # Callback handler when user selects a channel to search in
-@bot.on_callback_query(filters.regex(r"^search_channel:(.+):(-?\d+):(\d+)$"))
+@bot.on_callback_query(filters.regex(r"^search_channel:(.+):(-?\d+):(\d+):(\d+)$"))
 async def channel_search_callback_handler(client, callback_query: CallbackQuery):
     query_id = callback_query.matches[0].group(1)
     query = get_query_by_id(query_id)
     channel_id = int(callback_query.matches[0].group(2))
     page = int(callback_query.matches[0].group(3))
+    original_user_id = int(callback_query.matches[0].group(4))
+    current_user_id = callback_query.from_user.id or 1234
     query = sanitize_query(unquote_plus(query))
     skip = (page - 1) * SEARCH_PAGE_SIZE
     user_link = await get_user_link(callback_query.from_user)
@@ -607,10 +607,15 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     channel_info = allowed_channels_col.find_one({'channel_id': channel_id})
     channel_name = channel_info.get('channel_name', str(channel_id)) if channel_info else str(channel_id)
 
+    if current_user_id != original_user_id:
+        await callback_query.answer("❌ Only the original requester can use these buttons.", show_alert=True)
+        return
+
     if not files:
         await callback_query.edit_message_text(
             f"<b>🕵🏻‍♂️ Query: <code>{query}</b></code>\n"
             f"<b>🛒 Category:</b> {channel_name}\n"
+            f"<b>👤 User:</b> {user_link}\n"
             f"<b>❌ No files found</b>.\n\n"            
             f"📝 <i>Tip: Double-check your spelling or try searching the title on <a href='https://www.google.com/search?q={quote_plus(query)}'>Google</a>.</i>\n\n"
             f"<b>❓ What's available? Check <a href='{UPDATE_CHANNEL_LINK}'>here</a>.</b>",
@@ -628,6 +633,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     text = (
         f"<b>🕵🏻‍♂️ Query: <code>{query}</b></code>\n"
         f"<b>🛒 Category:</b> {channel_name}\n"
+        f"<b>👤 User:</b> {user_link}\n"
         f"<b>📂 Found:</b> {total_files} files\n"
         f"<b>📖 Page:</b> {page} | {total_pages}\n"
     )
@@ -639,17 +645,17 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
         buttons.append([
             InlineKeyboardButton(
                 btn_text,
-                callback_data=f"getfile:{file_link}"
+                callback_data=f"getfile:{file_link}:{original_user_id}"
             )
         ])
 
     # Pagination
     page_buttons = []
     if page > 1:
-        prev_data = f"search_channel:{query_id}:{channel_id}:{page - 1}"
+        prev_data = f"search_channel:{query_id}:{channel_id}:{page-1}:{original_user_id}"
         page_buttons.append(InlineKeyboardButton("⬅️ Prev", callback_data=prev_data))
     if page < total_pages:
-        next_data = f"search_channel:{query_id}:{channel_id}:{page + 1}"
+        next_data = f"search_channel:{query_id}:{channel_id}:{page+1}:{original_user_id}"
         page_buttons.append(InlineKeyboardButton("➡️ Next", callback_data=next_data))
 
     reply_markup = InlineKeyboardMarkup(buttons + ([page_buttons] if page_buttons else []))
@@ -666,11 +672,18 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
 
 
 # Callback handler to send file to user
-@bot.on_callback_query(filters.regex(r"^getfile:(.+)$"))
+@bot.on_callback_query(filters.regex(r"^getfile:(.+):(\d+)$"))
 async def send_file_callback(client, callback_query: CallbackQuery):
     file_link = callback_query.matches[0].group(1)
-    user_id = callback_query.from_user.id
+    allowed_user_id = int(callback_query.matches[0].group(2))
+    user_id = callback_query.from_user.id or 1234
     try:
+        if user_id != allowed_user_id:
+            await callback_query.answer(
+                f"❌ This is not your request.",
+                show_alert=True
+            )
+            return
         if user_id != OWNER_ID and not is_user_authorized(user_id):
             now = datetime.now(timezone.utc)
             token_doc = tokens_col.find_one({
@@ -691,7 +704,7 @@ async def send_file_callback(client, callback_query: CallbackQuery):
                     [[InlineKeyboardButton("🔓 Get Access Link", url=short_link)]]
                 )
             )
-            await callback_query.answer("Access link sent")
+            await callback_query.answer("Access link sent check pm", show_alert=True)
             bot.loop.create_task(delete_after_delay(reply))
             return
 
@@ -721,6 +734,43 @@ async def send_file_callback(client, callback_query: CallbackQuery):
         bot.loop.create_task(delete_after_delay(send_file))
     except Exception as e:
         await callback_query.answer(f"Failed: {e}", show_alert=True)
+
+@bot.on_message(filters.chat(GROUP_ID) & filters.service)
+async def group_message_handler(client, message):
+    try:
+        # 1. Greet new members
+        if message.new_chat_members:
+            for user in message.new_chat_members:
+                try:
+                    user_name = user.first_name or "there"
+                    welcome_text = (
+                        f"👋 <b>Welcome, {user_name}!</b>\n\n"
+                        f"I'm your search assistant bot 🤖 here to help you find and access files quickly.\n\n"
+                        f"📌 <b>How to use me:</b>\n"
+                        f"Just type the name or title of the file you're looking for — no commands needed!\n"
+                        f"Example: <code>John Wick</code>, <code>Excel Tutorial</code>\n\n"
+                        f"Need help? Just ask here {SUPPORT} 🚀"
+                    )
+
+                    reply = await message.reply_text(
+                        welcome_text,
+                        parse_mode=enums.ParseMode.HTML,
+                        reply_markup=InlineKeyboardMarkup(
+                            [
+                                [InlineKeyboardButton("📢 Updates Channel", url=UPDATE_CHANNEL_LINK)]
+                            ]
+                        )
+                    )
+
+                    # Auto-delete service message + welcome message
+                    if reply:
+                        bot.loop.create_task(delete_after_delay(reply))
+                except Exception as e:
+                    logger.error(f"Failed to greet new member: {e}")
+        bot.loop.create_task(delete_after_delay(message))
+    except Exception as e:
+        logger.error(f"Error in group_message_handler: {e}")
+
 
 @bot.on_message(filters.command("chatop") & filters.private & filters.user(OWNER_ID))
 async def chatop_handler(client, message: Message):
@@ -766,10 +816,8 @@ async def main():
     """
     # Set bot commands
     await bot.start()
-    await bot.set_bot_commands([
-        BotCommand("start", "Start the bot")
-    ])
-    
+    await bot.set_bot_commands([])
+
     bot.loop.create_task(start_fastapi())
     bot.loop.create_task(file_queue_worker(bot))  # Start the queue worker
     bot.loop.create_task(periodic_expiry_cleanup())

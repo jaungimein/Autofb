@@ -46,14 +46,11 @@ def format_tmdb_info(tmdb_type, movie_id, data):
         release_year = data.get('release_date', '')[:4] if data.get('release_date') else ""
         director = cast_crew.get('director')
         starring = ", ".join(cast_crew.get('starring', [])) if cast_crew.get('starring') else None
-        vote_average = data.get('vote_average')
         spoken_languages = ", ".join([lang.get('name', '') for lang in data.get('spoken_languages', [])])
         runtime = format_duration(data.get('runtime')) if data.get('runtime') else ""
         rating = imdb_info.get('rating')
         if rating is not None:
-            rating_str = f"{rating:.1f}"
-        elif vote_average is not None:
-            rating_str = f"{vote_average:.1f}"
+            rating_str = f"{rating}"
         else:
             rating_str = None
 
@@ -81,13 +78,10 @@ def format_tmdb_info(tmdb_type, movie_id, data):
         release_year = data.get('first_air_date', '')[:4] if data.get('first_air_date') else ""
         director = ", ".join([creator['name'] for creator in data.get('created_by', [])]) if data.get('created_by') else cast_crew.get('director')
         starring = ", ".join(cast_crew.get('starring', [])) if cast_crew.get('starring') else None
-        vote_average = data.get('vote_average')
         spoken_languages = ", ".join([lang.get('name', '') for lang in data.get('spoken_languages', [])])
         rating = imdb_info.get('rating')
         if rating is not None:
-            rating_str = f"{rating:.1f}"
-        elif vote_average is not None:
-            rating_str = f"{vote_average:.1f}"
+            rating_str = f"{rating}"
         else:
             rating_str = None
 

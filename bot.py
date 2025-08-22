@@ -476,9 +476,9 @@ async def stats_command(client, message: Message):
 
         # Compose stats message
         text = (
-            f"👤 <b>Total auth users: {total_auth_users} / {total_users}</b>\n"
-            f"💾 <b>Files size:</b> <b>{human_readable_size(total_storage)}</b>\n"
-            f"📊 <b>Database storage used: {db_storage / (1024 * 1024):.2f} MB</b>\n"
+            f"👤 <b>Total auth users:</b> {total_auth_users} / {total_users}\n"
+            f"💾 <b>Files size:</b> {human_readable_size(total_storage)}\n"
+            f"📊 <b>Database storage used:</b> {db_storage / (1024 * 1024):.2f} MB\n"
         )
 
         if not channel_counts:
@@ -487,7 +487,7 @@ async def stats_command(client, message: Message):
             for c in channel_counts:
                 chan_id = c['_id']
                 chan_name = channel_names.get(chan_id, 'Unknown')
-                text += f"<b>{chan_name}</b>: <b>{c['count']} files</b>\n"
+                text += f"<b>{chan_name}</b>: {c['count']} files\n"
 
         reply = await message.reply_text(text, parse_mode=enums.ParseMode.HTML)
         if reply:

@@ -726,7 +726,7 @@ async def send_file_callback(client, callback_query: CallbackQuery):
         )
         user_file_count[user_id] += 1
         await callback_query.answer(
-            f"File send in PM will be auto deleted in 5 minutes — forward it.")
+            f"File send in PM will be auto deleted in 5 minutes — forward it.", show_alert=True)
         bot.loop.create_task(delete_after_delay(send_file))
     except Exception as e:
         await callback_query.answer(f"Failed: {e}", show_alert=True)

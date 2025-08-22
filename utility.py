@@ -194,6 +194,9 @@ async def get_user_link(user: User) -> str:
     else:
         return first_name
     
+def get_safe_user_id(obj, fallback=1234):
+    return getattr(obj, "id", None) if obj else fallback
+    
 # =========================
 # Token Utilities
 # =========================

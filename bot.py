@@ -24,8 +24,7 @@ from utility import (
     queue_file_for_processing, file_queue_worker,
     file_queue, extract_tmdb_link, periodic_expiry_cleanup,
     restore_tmdb_photos, build_search_pipeline,
-    get_user_link, delete_after_delay
-)
+    get_user_link, delete_after_delay, get_safe_user_id)
 from db import (db, users_col, 
                 tokens_col, 
                 files_col, 
@@ -543,7 +542,7 @@ async def tmdb_command(client, message):
 async def instant_search_handler(client, message):
     reply = None
     user_link = await get_user_link(message.from_user)
-    user_id = getattr(message.from_user, "id", None) or 1234
+    user_id = get_safe_user_id(message.from_user)
     try: 
         query = sanitize_query(message.text)
         query_id = store_query(query)
@@ -594,7 +593,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     channel_id = int(callback_query.matches[0].group(2))
     page = int(callback_query.matches[0].group(3))
     original_user_id = int(callback_query.matches[0].group(4))
-    current_user_id = getattr(callback_query.from_user, "id", None) or 1234
+    current_user_id = get_safe_user_id(callback_query.from_user)
     query = sanitize_query(unquote_plus(query))
     skip = (page - 1) * SEARCH_PAGE_SIZE
     user_link = await get_user_link(callback_query.from_user)
@@ -676,7 +675,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
 async def send_file_callback(client, callback_query: CallbackQuery):
     file_link = callback_query.matches[0].group(1)
     allowed_user_id = int(callback_query.matches[0].group(2))
-    user_id = getattr(callback_query.from_user, "id", None) or 1234
+    user_id = get_safe_user_id(callback_query.from_user)
     try:
         if user_id != allowed_user_id:
             await callback_query.answer(

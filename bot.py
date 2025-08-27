@@ -12,7 +12,7 @@ from collections import defaultdict
 
 from pyrogram import Client, enums, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
-from pyrogram.errors import ListenerTimeout
+from pyrogram.errors import ListenerTimeout, FloodWait
 import uvicorn
 
 from config import *
@@ -204,7 +204,10 @@ async def channel_file_handler(client, message):
             "Delete", callback_data=f"file:{message.chat.id}:{message.id}")
     ]])
     try:
-        await safe_api_call(message.edit_reply_markup(inline_reply_markup))
+        await message.edit_reply_markup(inline_reply_markup)
+    except Floodwait as F:
+        await asyncio.sleep(F.value * 1.2)
+        await message.edit_reply_markup(inline_reply_markup)
     except Exception as e:
         logger.error(f"Error updating message markup: {e}")
         pass

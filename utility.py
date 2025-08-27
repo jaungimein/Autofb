@@ -459,6 +459,11 @@ async def file_queue_worker(bot):
                         )
             else:
                 upsert_file_info(file_info)
+                inline_reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("Delete", callback_data=f"file:{file_info['channel_id']}:{file_info['message_id']}")]])
+                try:    
+                    await safe_api_call(message.edit_message_reply_markup(inline_reply_markup))
+                except Exception as e:
+                    pass
                 if message.audio:
                     audio_path = await bot.download_media(message)
                     thumb_path = await get_audio_thumbnail(audio_path)

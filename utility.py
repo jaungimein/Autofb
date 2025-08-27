@@ -474,6 +474,7 @@ async def file_queue_worker(bot):
                     await asyncio.sleep(3)   
                     await safe_api_call(message.edit_reply_markup(inline_reply_markup))
                 except Exception as e:
+                    logger.error(f"Error updating message markup: {e}")
                     pass
                 if message.audio:
                     audio_path = await bot.download_media(message)

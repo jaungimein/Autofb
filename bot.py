@@ -761,6 +761,26 @@ async def delete_file_callback(client, callback_query: CallbackQuery):
 async def noop_callback_handler(client, callback_query: CallbackQuery):
     await callback_query.answer()  # Instantly respond, does nothing
 
+@bot.on_callback_query(filters.regex(r"^delete_tmdb:(\w+):(\d+)$"))
+async def delete_tmdb_callback(client, callback_query: CallbackQuery):
+    try:
+        tmdb_type = callback_query.matches[0].group(1)
+        tmdb_id = int(callback_query.matches[0].group(2))
+
+        result = tmdb_col.delete_one({"tmdb_type": tmdb_type, "tmdb_id": tmdb_id})
+        if result.deleted_count > 0:
+            await callback_query.edit_message_caption(
+                caption=f"🗑️ Deleted TMDB record: <b>{tmdb_type}/{tmdb_id}</b>",
+                parse_mode=enums.ParseMode.HTML,
+                reply_markup=None
+            )
+            await callback_query.answer("Deleted from database.", show_alert=True)
+        else:
+            await callback_query.answer("Not found in database.", show_alert=True)
+    except Exception as e:
+        logger.error(f"Error in delete_tmdb_callback: {e}")
+        await callback_query.answer("Error deleting TMDB record.", show_alert=True)
+
 @bot.on_message(filters.command("chatop") & filters.private & filters.user(OWNER_ID))
 async def chatop_handler(client, message: Message):
     """

@@ -496,8 +496,17 @@ async def file_queue_worker(bot):
                             trailer = results.get('trailer_url')
                             info = results.get('message')
                             if poster_url:
-                                keyboard = InlineKeyboardMarkup(
-                                    [[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
+                                # Build keyboard with Trailer (if available) and Delete button
+                                buttons = []
+                                if trailer:
+                                    buttons.append(InlineKeyboardButton("🎥 Trailer", url=trailer))
+                                buttons.append(
+                                    InlineKeyboardButton(
+                                        "🗑️ Delete",
+                                        callback_data=f"delete_tmdb:{tmdb_type}:{tmdb_id}"
+                                    )
+                                )
+                                keyboard = InlineKeyboardMarkup([buttons])
                                 await safe_api_call(
                                     bot.send_photo(
                                         UPDATE_CHANNEL_ID,

@@ -619,7 +619,8 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
 
     if not files:
         await callback_query.edit_message_text(
-            f"<b>❌ No files found for:\n{query}</b>",
+            f"<b>❌ No files found for {query}\n"
+            "Try like Inception | Loki | Loki S01E01",
             parse_mode=enums.ParseMode.HTML,
             disable_web_page_preview=True
         )
@@ -631,7 +632,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
         return
 
     total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE
-    text = (f"<b>📂 Found:</b> {total_files} files in {channel_name} for:\n{query}")
+    text = (f"<b>📂 Here's what i found for {query}</b>")
     buttons = []
     for f in files:
         file_link = encode_file_link(f["channel_id"], f["message_id"])
@@ -788,7 +789,6 @@ async def main():
     """
     # Set bot commands
     await bot.start()
-    await bot.set_bot_commands([])
 
     bot.loop.create_task(start_fastapi())
     bot.loop.create_task(file_queue_worker(bot))  # Start the queue worker

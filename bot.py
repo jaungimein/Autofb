@@ -173,7 +173,6 @@ async def start_handler(client, message):
 
             welcome_text = (
                 f"👋 🔰 Hello {user_link}! 🔰\n\n"
-                f"Nice to meet you, my dear friend! 🤗\n\n"
                 f"I'm an Auto Filter Bot 🤖 used to search documents\n\n"
                 f"🗓️ You joined: <code>{joined_str}</code>\n\n"
                 f"❤️ Enjoy your experience here! ❤️"
@@ -619,7 +618,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
 
     if not files:
         await callback_query.edit_message_text(
-            f"<b>❌ No files found for {query}\n"
+            f"<b>❌ No files found for {query}</b>\n"
             "Try like Inception | Loki | Loki S01E01",
             parse_mode=enums.ParseMode.HTML,
             disable_web_page_preview=True
@@ -744,6 +743,10 @@ async def delete_file_callback(client, callback_query: CallbackQuery):
     except Exception as e:
         logger.error(f"Error in delete_file_callback: {e}")
         await callback_query.answer("Error deleting file.", show_alert=True)
+
+@bot.on_callback_query(filters.regex(r"^noop$"))
+async def noop_callback_handler(client, callback_query: CallbackQuery):
+    await callback_query.answer()  # Instantly respond, does nothing
 
 @bot.on_message(filters.command("chatop") & filters.private & filters.user(OWNER_ID))
 async def chatop_handler(client, message: Message):

@@ -619,7 +619,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
 
     if not files:
         await callback_query.edit_message_text(
-            f"<b>❌ No files found for:\n{query}.</b>",
+            f"<b>❌ No files found for:\n{query}</b>",
             parse_mode=enums.ParseMode.HTML,
             disable_web_page_preview=True
         )
@@ -722,6 +722,27 @@ async def send_file_callback(client, callback_query: CallbackQuery):
         bot.loop.create_task(delete_after_delay(send_file))
     except Exception as e:
         await callback_query.answer(f"Failed: {e}", show_alert=True)
+
+@bot.on_callback_query(filters.regex(r"^file:(-?\d+):(\d+)$"))
+async def delete_file_callback(client, callback_query: CallbackQuery):
+    try:
+        channel_id = int(callback_query.matches[0].group(1))
+        message_id = int(callback_query.matches[0].group(2))
+
+        # Delete from database
+        result = files_col.delete_one({"channel_id": channel_id, "message_id": message_id})
+
+        if result.deleted_count > 0:
+            await callback_query.answer("🗑️ File deleted from database.", show_alert=True)
+            try:
+                await bot.delete_messages(channel_id, message_id)
+            except Exception as e:
+                pass  # It's ok if the message is already deleted
+        else:
+            await callback_query.answer("❌ File not found in database.", show_alert=True)
+    except Exception as e:
+        logger.error(f"Error in delete_file_callback: {e}")
+        await callback_query.answer("Error deleting file.", show_alert=True)
 
 @bot.on_message(filters.command("chatop") & filters.private & filters.user(OWNER_ID))
 async def chatop_handler(client, message: Message):

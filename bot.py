@@ -208,8 +208,7 @@ async def channel_file_handler(client, message):
     except FloodWait as F:
         await asyncio.sleep(F.value * 1.2)
         await message.edit_reply_markup(inline_reply_markup)
-    except Exception as e:
-        logger.error(f"Error updating message markup: {e}")
+    except Exception:
         pass
 
     await queue_file_for_processing(message, reply_func=message.reply_text)

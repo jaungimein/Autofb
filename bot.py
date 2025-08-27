@@ -578,9 +578,7 @@ async def instant_search_handler(client, message):
             return
 
         # Show channel selection buttons
-        text = (f"<b>🕵🏻‍♂️ Query:</b> {query}\n"
-                f"<b>✅ Select a Category</b>"
-                )
+        text = (f"<b>✅ Select a Category</b>")
         buttons = []
         for c in channels:
             chan_id = c["channel_id"]
@@ -602,7 +600,7 @@ async def instant_search_handler(client, message):
         )
     except Exception as e:
         logger.error(f"Error in instant_search_handler: {e}")
-        reply = await message.reply_text(f"Invalid search query. Please try again with a different query.")
+        reply = await reply.edit_text(f"Invalid search query. Please try again with a different query.")
     if reply:
         bot.loop.create_task(auto_delete_message(message, reply))
 
@@ -627,29 +625,15 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     channel_name = channel_info.get('channel_name', str(channel_id)) if channel_info else str(channel_id)
 
     if not files:
-        await callback_query.edit_message_text(
-            f"<b>🕵🏻‍♂️ Query: <code>{query}</b></code>\n"
-            f"<b>🛒 Category:</b> {channel_name}\n"
-            f"<b>❌ No files found</b>.\n\n"            
-            f"📝 <i>Tip: Double-check your spelling or try searching the title on <a href='https://www.google.com/search?q={quote_plus(query)}'>Google</a>.</i>\n\n"
-            f"<b>❓ What's available? Check <a href='{UPDATE_CHANNEL_LINK}'>here</a>.</b>",
-            parse_mode=enums.ParseMode.HTML,
-            disable_web_page_preview=True
-        )
         await bot.send_message(
             LOG_CHANNEL_ID, 
             f"🔎 No result for query:\n<code>{query}</code> in <b>{channel_name}</b>\nUser: {user_link}"
         )
-        await callback_query.answer()
+        await callback_query.answer(text="<b>❌ No files found</b>", show_alert=True, url=f"https://telegram.dog/{BOT_USERNAME}?start=help")
         return
 
     total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE
-    text = (
-        f"<b>🕵🏻‍♂️ Query: <code>{query}</b></code>\n"
-        f"<b>🛒 Category:</b> {channel_name}\n"
-        f"<b>📂 Found:</b> {total_files} files\n"
-        f"<b>📖 Page:</b> {page} | {total_pages}\n"
-    )
+    text = (f"<b>📂 Found:</b> {total_files} files in {channel_name} for {query}\n")
     buttons = []
     for f in files:
         file_link = encode_file_link(f["channel_id"], f["message_id"])

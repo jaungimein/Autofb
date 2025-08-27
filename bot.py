@@ -179,7 +179,7 @@ async def start_handler(client, message):
                 joined_str = "Unknown"
 
             welcome_text = (
-                f"👋 <b>🔰 Hello {user_link}! 🔰\n\n"
+                f"👋 🔰 Hello {user_link}! 🔰\n\n"
                 f"Nice to meet you, my dear friend! 🤗\n\n"
                 f"I'm an Auto Filter Bot 🤖 used to search documents\n\n"
                 f"🗓️ You joined: <code>{joined_str}</code>\n\n"
@@ -560,7 +560,7 @@ async def tmdb_command(client, message):
     await message.delete()
 
 # Handles incoming text messages in private chat that aren't commands
-@bot.on_message(filters.chat(GROUP_ID) & filters.text & ~filters.command([
+@bot.on_message(filters.private & filters.text & ~filters.command([
     "start", "stats", "add", "rm", "broadcast", "log", "tmdb", 
     "restore", "index", "del", "restart", "chatop"]))
 async def instant_search_handler(_, message):
@@ -626,7 +626,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
 
     if not files:
         await callback_query.edit_message_text(
-            "❌ No files found.\n\n",
+            "<b>❌ No files found.</b>\n\n",
             parse_mode=enums.ParseMode.HTML,
             disable_web_page_preview=True
         )

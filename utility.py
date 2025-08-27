@@ -498,7 +498,6 @@ async def file_queue_worker(bot):
                             if poster_url:
                                 keyboard = InlineKeyboardMarkup(
                                     [[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
-                                await asyncio.sleep(3)
                                 await safe_api_call(
                                     bot.send_photo(
                                         UPDATE_CHANNEL_ID,

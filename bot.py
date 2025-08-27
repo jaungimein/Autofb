@@ -204,7 +204,7 @@ async def channel_file_handler(client, message):
             "Delete", callback_data=f"file:{message.chat.id}:{message.id}")
     ]])
     try:
-        await safe_api_call(message.edit_reply_markup(inline_reply_markup))
+        await message.edit_reply_markup(inline_reply_markup)
     except Exception as e:
         logger.error(f"Error updating message markup: {e}")
         pass

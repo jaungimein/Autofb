@@ -193,11 +193,18 @@ async def start_handler(client, message):
     if reply_msg:
         bot.loop.create_task(auto_delete_message(message, reply_msg))
 
-@bot.on_message(filters.channel & (filters.document | filters.video | filters.audio | filters.photo))
+@bot.on_message(filters.channel & filters.incoming & (filters.document | filters.video | filters.audio | filters.photo))
 async def channel_file_handler(client, message):
     allowed_channels = await get_allowed_channels()
     if message.chat.id not in allowed_channels:
         return
+    
+    inline_reply_markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton(
+            "Delete", callback_data=f"file:{message.chat.id}:{message.id}")
+    ]])
+    await safe_api_call(message.edit_reply_markup(inline_reply_markup))
+
     await queue_file_for_processing(message, reply_func=message.reply_text)
     await file_queue.join()
     invalidate_search_cache()

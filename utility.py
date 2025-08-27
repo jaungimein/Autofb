@@ -507,15 +507,27 @@ async def file_queue_worker(bot):
                                     )
                                 )
                                 keyboard = InlineKeyboardMarkup([buttons])
-                                await safe_api_call(
-                                    bot.send_photo(
+                                try:
+
+                                    await bot.send_photo(
                                         UPDATE_CHANNEL_ID,
                                         photo=poster_url,
                                         caption=info,
                                         parse_mode=enums.ParseMode.HTML,
                                         reply_markup=keyboard
                                     )
-                                )
+                                except FloodWait as F:
+                                    await asyncio.sleep(F.value * 1.2)
+                                    await bot.send_photo(
+                                        UPDATE_CHANNEL_ID,
+                                        photo=poster_url,
+                                        caption=info,
+                                        parse_mode=enums.ParseMode.HTML,
+                                        reply_markup=keyboard
+                                    )
+                                except Exception:
+                                    pass
+                                
                                 upsert_tmdb_info(tmdb_id, tmdb_type)
 
                 except Exception as e:

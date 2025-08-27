@@ -592,7 +592,7 @@ async def instant_search_handler(_, message):
             ])
         reply_markup = InlineKeyboardMarkup(buttons)
         reply = await safe_api_call(
-            reply.edit_message_text(
+            reply.edit_text(
                 text,
                 reply_markup=reply_markup,
                 parse_mode=enums.ParseMode.HTML

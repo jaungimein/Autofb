@@ -203,7 +203,12 @@ async def channel_file_handler(client, message):
         [InlineKeyboardButton(
             "Delete", callback_data=f"file:{message.chat.id}:{message.id}")
     ]])
-    await safe_api_call(message.edit_reply_markup(inline_reply_markup))
+    try:
+        await asyncio.sleep(3)
+        await safe_api_call(message.edit_reply_markup(inline_reply_markup))
+    except Exception as e:
+        logger.error(f"Error updating message markup: {e}")
+        pass
 
     await queue_file_for_processing(message, reply_func=message.reply_text)
     await file_queue.join()

@@ -629,7 +629,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
             LOG_CHANNEL_ID, 
             f"🔎 No result for query:\n<code>{query}</code> in <b>{channel_name}</b>\nUser: {user_link}"
         )
-        await callback_query.answer(text="<b>❌ No files found</b>", show_alert=True, url=f"https://telegram.dog/{BOT_USERNAME}?start=help")
+        await callback_query.answer(text="<b>❌ No files found</b>", show_alert=True, url=f"https://t.me/{BOT_USERNAME}?start=help")
         return
 
     total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE

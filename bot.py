@@ -102,7 +102,9 @@ async def start_handler(client, message):
     try: 
         user_id = message.from_user.id
         user_link = await get_user_link(message.from_user) 
-        add_user(user_id)
+        first_name = message.from_user.first_name or None
+        username = message.from_user.username or None
+        add_user(user_id, first_name, username)
         bot_username = BOT_USERNAME
 
         # --- Token-based authorization ---

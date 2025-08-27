@@ -39,7 +39,7 @@ def format_tmdb_info(tmdb_type, movie_id, data):
         imdb_id = data.get('imdb_id')
         imdb_info = get_imdb_details(imdb_id) if imdb_id else {}
 
-        plot = imdb_info.get('plot') or data.get('overview')
+        plot = imdb_info.get('plot')
         title = data.get('title')
         genre = extract_genres(data)
         genre_tags = " ".join([genre_tag_with_emoji(g) for g in genre])
@@ -71,7 +71,7 @@ def format_tmdb_info(tmdb_type, movie_id, data):
         imdb_id = get_tv_imdb_id_sync(movie_id)
         imdb_info = get_imdb_details(imdb_id) if imdb_id else {}
 
-        plot = imdb_info.get('plot') or data.get('overview')
+        plot = imdb_info.get('plot')
         title = data.get('name')
         genre = extract_genres(data)
         genre_tags = " ".join([genre_tag_with_emoji(g) for g in genre])

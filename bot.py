@@ -38,7 +38,7 @@ from tmdb import get_by_id
 import logging
 from pyrogram.types import CallbackQuery
 import base64
-from urllib.parse import quote_plus, unquote_plus
+from urllib.parse import unquote_plus
 from query_helper import store_query, get_query_by_id, start_query_id_cleanup_thread
 # =========================
 # Constants & Globals
@@ -104,8 +104,8 @@ async def start_handler(client, message):
         user_link = await get_user_link(message.from_user) 
         first_name = message.from_user.first_name or None
         username = message.from_user.username or None
-        add_user(user_id, first_name, username)
-        bot_username = BOT_USERNAME
+        if user_id != OWNER_ID:
+            add_user(user_id, first_name, username)
 
         # --- Token-based authorization ---
         if len(message.command) == 2 and message.command[1].startswith("token_"):
@@ -134,7 +134,7 @@ async def start_handler(client, message):
                     "expiry": {"$gt": now}
                 })
                 token_id = token_doc["token_id"] if token_doc else generate_token(user_id)
-                short_link = shorten_url(get_token_link(token_id, bot_username))
+                short_link = shorten_url(get_token_link(token_id, BOT_USERNAME))
                 reply_msg = await safe_api_call(message.reply_text(
                     "❌ You are not authorized\n"
                     "Please use this link to get access for 24 hours:",
@@ -626,7 +626,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
 
     if not files:
         await callback_query.edit_message_text(
-            "❌ No files found</b>.\n\n",
+            "❌ No files found.\n\n",
             parse_mode=enums.ParseMode.HTML,
             disable_web_page_preview=True
         )

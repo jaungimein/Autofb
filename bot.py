@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from collections import defaultdict
 
 from pyrogram import Client, enums, filters
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, BotCommand
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import ListenerTimeout
 import uvicorn
 
@@ -24,7 +24,7 @@ from utility import (
     queue_file_for_processing, file_queue_worker,
     file_queue, extract_tmdb_link, periodic_expiry_cleanup,
     restore_tmdb_photos, build_search_pipeline,
-    get_user_link, delete_after_delay, get_safe_user_id)
+    get_user_link, delete_after_delay)
 from db import (db, users_col, 
                 tokens_col, 
                 files_col, 
@@ -113,6 +113,14 @@ async def start_handler(client, message):
                 await safe_api_call(bot.send_message(LOG_CHANNEL_ID, f"✅ User <b>{user_link}</b> authorized via token."))
             else:
                 reply_msg = await safe_api_call(message.reply_text("❌ Invalid or expired token. Please get a new link."))
+                await safe_api_call(bot.send_message(LOG_CHANNEL_ID, f"❌ User <b>{user_link}</b> used invalid or expired token."))
+
+        # --- HELP MSG ---
+        elif len(message.command) == 2 and message.command[1].startswith("help"):
+            reply_msg = await safe_api_call(message.reply_text(HELP_TEXT,
+                parse_mode=enums.ParseMode.HTML
+                )
+            )
 
         # --- File access via deep link ---
         elif len(message.command) == 2 and message.command[1].startswith("file_"):
@@ -159,8 +167,14 @@ async def start_handler(client, message):
         else:
             welcome_text = (
                             f"👋 <b>Welcome, {user_link}!</b>\n\n"
-                            f"I'm a Auto Filter Bot 🤖 used to manage request in a group."
+                            f"
                             )
+            welcome_text = (
+                f"👋 <b>🔰 Hello {user_link}! 🔰\n\n"
+                f"Nice to meet you, my dear friend! 🤗\n\n"
+                f"I'm a Auto Filter Bot 🤖 used to search documents\n\n"
+                f"❤️ Enjoy your experience here! ❤️"
+            )
             reply_msg = await safe_api_call(
                 message.reply_text(welcome_text,
                 reply_markup=InlineKeyboardMarkup(
@@ -602,9 +616,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
 
     if not files:
         await callback_query.edit_message_text(
-            f"<b>❌ No files found</b>.\n\n"            
-            f"📝 <i>Tip: Double-check your spelling or try searching the title on <a href='https://www.google.com/search?q={quote_plus(query)}'>Google</a>.</i>\n\n"
-            f"<b>❓ What's available? Check <a href='{UPDATE_CHANNEL_LINK}'>here</a>.</b>",
+            f"<b>❌ No files found</b>.\n\n"
             parse_mode=enums.ParseMode.HTML,
             disable_web_page_preview=True
         )
@@ -612,7 +624,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
             LOG_CHANNEL_ID, 
             f"🔎 No result for query:\n<code>{query}</code> in <b>{channel_name}</b>\nUser: {user_link}"
         )
-        await callback_query.answer()
+        await callback_query.answer(text="<b>❌ No files found</b>", show_alert=True, url=f"https://telegram.dog/{BOT_USERNAME}?start=help")
         return
 
     total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE
@@ -658,7 +670,7 @@ async def send_file_callback(client, callback_query: CallbackQuery):
     file_link = callback_query.matches[0].group(1)
     user_id = callback_query.from_user.id
     try:
-        if user_id != OWNER_ID and not is_user_authorized(user_id):
+        if not is_user_authorized(user_id):
             now = datetime.now(timezone.utc)
             token_doc = tokens_col.find_one({
                 "user_id": user_id,
@@ -675,7 +687,7 @@ async def send_file_callback(client, callback_query: CallbackQuery):
             await callback_query.answer(text, show_alert=True, url=short_link, )
             return
 
-        if user_id != OWNER_ID and user_file_count[user_id] >= MAX_FILES_PER_SESSION:
+        if user_file_count[user_id] >= MAX_FILES_PER_SESSION:
             await callback_query.answer("Limit reached. Please take a break.", show_alert=True)
             return
 

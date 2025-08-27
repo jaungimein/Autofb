@@ -397,10 +397,10 @@ async def safe_api_call(coro):
         try:
             return await coro
         except FloodWait as e:
-            print(f"FloodWait: Sleeping for {e.value} seconds")
-            await asyncio.sleep(e.value)
-        except Exception:
-            raise
+            await asyncio.sleep(e.value * 1.2)
+            return await coro
+        except Exception as e:
+            logger.error(f"API call failded: {e}")
 
 async def delete_after_delay(message):
     await asyncio.sleep(AUTO_DELETE_SECONDS)

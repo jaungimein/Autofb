@@ -204,7 +204,7 @@ async def channel_file_handler(client, message):
             "Delete", callback_data=f"file:{message.chat.id}:{message.id}")
     ]])
     try:
-        await message.edit_reply_markup(inline_reply_markup)
+        await safe_api_call(message.edit_reply_markup(inline_reply_markup))
     except Exception as e:
         logger.error(f"Error updating message markup: {e}")
         pass
@@ -628,16 +628,16 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     channel_name = channel_info.get('channel_name', str(channel_id)) if channel_info else str(channel_id)
 
     if not files:
-        await callback_query.edit_message_text(
+        await safe_api_call(callback_query.edit_message_text(
             f"<b>❌ No files found for {query}</b>\n"
             "Try like Inception | Loki | Loki S01E01",
             parse_mode=enums.ParseMode.HTML,
-            disable_web_page_preview=True
+            disable_web_page_preview=True)
         )
-        await bot.send_message(
+        await safe_api_call(bot.send_message(
             LOG_CHANNEL_ID, 
             f"🔎 No result for query:\n<code>{query}</code> in <b>{channel_name}</b>\nUser: {user_link}"
-        )
+        ))
         await callback_query.answer()
         return
 
@@ -669,11 +669,11 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     reply_markup = InlineKeyboardMarkup(buttons + ([page_buttons] if page_buttons else []))
 
     try:
-        await callback_query.edit_message_text(
+        await safe_api_call(callback_query.edit_message_text(
             text,
             reply_markup=reply_markup,
             parse_mode=enums.ParseMode.HTML
-        )
+        ))
     except Exception:
         pass
     await callback_query.answer()
@@ -693,7 +693,7 @@ async def send_file_callback(client, callback_query: CallbackQuery):
             })
             token_id = token_doc["token_id"] if token_doc else generate_token(user_id)
             short_link = shorten_url(get_token_link(token_id, BOT_USERNAME))
-            await callback_query.edit_message_text(
+            await safe_api_call(callback_query.edit_message_text(
                 text=(
                     "🎉 Just one step away!\n\n"
                     "To access files, please contribute a little by clicking the link below. "
@@ -703,12 +703,12 @@ async def send_file_callback(client, callback_query: CallbackQuery):
                 reply_markup=InlineKeyboardMarkup(
                     [[InlineKeyboardButton("🔓 Get Access Link", url=short_link)]]
                 )
-            )
-            await callback_query.answer()
+            ))
+            callback_query.answer()
             return
 
         if user_file_count[user_id] >= MAX_FILES_PER_SESSION:
-            await callback_query.answer("Limit reached. Please take a break.", show_alert=True)
+            await safe_api_call(callback_query.answer("Limit reached. Please take a break.", show_alert=True))
             return
 
         padding = '=' * (-len(file_link) % 4)
@@ -722,14 +722,14 @@ async def send_file_callback(client, callback_query: CallbackQuery):
             await callback_query.answer("File not found.", show_alert=True)
             return
 
-        send_file = await client.copy_message(
+        send_file = await safe_api_call(client.copy_message(
             chat_id=user_id,
             from_chat_id=file_doc["channel_id"],
             message_id=file_doc["message_id"]
-        )
+        ))
         user_file_count[user_id] += 1
-        await callback_query.answer(
-            f"File will be auto deleted in 5 minutes — forward it.", show_alert=True)
+        await safe_api_call(callback_query.answer(
+            f"File will be auto deleted in 5 minutes — forward it.", show_alert=True))
         bot.loop.create_task(delete_after_delay(send_file))
     except Exception as e:
         await callback_query.answer(f"Failed: {e}", show_alert=True)

@@ -117,13 +117,6 @@ async def start_handler(client, message):
                 reply_msg = await safe_api_call(message.reply_text("❌ Invalid or expired token. Please get a new link."))
                 await safe_api_call(bot.send_message(LOG_CHANNEL_ID, f"❌ User <b>{user_link}</b> used invalid or expired token."))
 
-        # --- HELP MSG ---
-        elif len(message.command) == 2 and message.command[1].startswith("help"):
-            reply_msg = await safe_api_call(message.reply_text(f'{HELP_TEXT}',
-                parse_mode=enums.ParseMode.HTML
-                )
-            )
-
         # --- File access via deep link ---
         elif len(message.command) == 2 and message.command[1].startswith("file_"):
             # Check if user is authorized, but skip for OWNER_ID
@@ -626,8 +619,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
 
     if not files:
         await callback_query.edit_message_text(
-            f"<b>❌ No files found for {query}.</b>\n\n"
-            f"{HELP_TEXT.html}",
+            f"<b>❌ No files found for:\n{query}.</b>",
             parse_mode=enums.ParseMode.HTML,
             disable_web_page_preview=True
         )
@@ -639,7 +631,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
         return
 
     total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE
-    text = (f"<b>📂 Found:</b> {total_files} files in {channel_name} for {query}\n")
+    text = (f"<b>📂 Found:</b> {total_files} files in {channel_name} for:\n{query}")
     buttons = []
     for f in files:
         file_link = encode_file_link(f["channel_id"], f["message_id"])
@@ -657,6 +649,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     if page > 1:
         prev_data = f"search_channel:{query_id}:{channel_id}:{page - 1}"
         page_buttons.append(InlineKeyboardButton("⬅️ Prev", callback_data=prev_data))
+    page_buttons.append(InlineKeyboardButton(f"{page} | {total_pages}",))
     if page < total_pages:
         next_data = f"search_channel:{query_id}:{channel_id}:{page + 1}"
         page_buttons.append(InlineKeyboardButton("➡️ Next", callback_data=next_data))
@@ -688,7 +681,7 @@ async def send_file_callback(client, callback_query: CallbackQuery):
             })
             token_id = token_doc["token_id"] if token_doc else generate_token(user_id)
             short_link = shorten_url(get_token_link(token_id, BOT_USERNAME))
-            reply = await bot.send_message(
+            await callback_query.edit_message_text(
                 chat_id=user_id,
                 text=(
                     "🎉 Just one step away!\n\n"
@@ -700,8 +693,7 @@ async def send_file_callback(client, callback_query: CallbackQuery):
                     [[InlineKeyboardButton("🔓 Get Access Link", url=short_link)]]
                 )
             )
-            await callback_query.answer("Access link sent")
-            bot.loop.create_task(delete_after_delay(reply))
+            await callback_query.answer()
             return
 
         if user_file_count[user_id] >= MAX_FILES_PER_SESSION:
@@ -726,7 +718,7 @@ async def send_file_callback(client, callback_query: CallbackQuery):
         )
         user_file_count[user_id] += 1
         await callback_query.answer(
-            f"File will be auto deleted in 5 minutes — forward it.")
+            f"File will be auto deleted in 5 minutes — forward it.", show_alert=True)
         bot.loop.create_task(delete_after_delay(send_file))
     except Exception as e:
         await callback_query.answer(f"Failed: {e}", show_alert=True)

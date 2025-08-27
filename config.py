@@ -53,7 +53,6 @@ TMDB_CHANNEL_ID = os.getenv('TMDB_CHANNEL_ID', '').split(',')
 LOG_CHANNEL_ID = int(os.getenv('LOG_CHANNEL_ID'))
 
 MY_DOMAIN = os.getenv('MY_DOMAIN')
-HELP_TEXT = os.getenv('HELP_TEXT')
 
 TOKEN_VALIDITY_SECONDS = 24 * 60 * 60  # 24 hours
 

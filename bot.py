@@ -165,14 +165,22 @@ async def start_handler(client, message):
                     reply_msg = await safe_api_call(message.reply_text(f"Failed to send file: {e}"))
         # --- Default greeting ---
         else:
-            welcome_text = (
-                            f"👋 <b>Welcome, {user_link}!</b>\n\n"
-                            f"
-                            )
+            # Get user join date from users_col
+            user_doc = users_col.find_one({"user_id": user_id})
+            if user_doc and "joined" in user_doc:
+                joined_date = user_doc["joined"]
+                if isinstance(joined_date, datetime):
+                    joined_str = joined_date.strftime("%Y-%m-%d %H:%M")
+                else:
+                    joined_str = str(joined_date)
+            else:
+                joined_str = "Unknown"
+
             welcome_text = (
                 f"👋 <b>🔰 Hello {user_link}! 🔰\n\n"
                 f"Nice to meet you, my dear friend! 🤗\n\n"
-                f"I'm a Auto Filter Bot 🤖 used to search documents\n\n"
+                f"I'm an Auto Filter Bot 🤖 used to search documents\n\n"
+                f"🗓️ You joined: <code>{joined_str}</code>\n\n"
                 f"❤️ Enjoy your experience here! ❤️"
             )
             reply_msg = await safe_api_call(

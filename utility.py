@@ -147,10 +147,23 @@ async def get_allowed_channels():
         for doc in allowed_channels_col.find({}, {"_id": 0, "channel_id": 1})
     ]
 
-def add_user(user_id):
+def add_user(user_id, first_name=None, username=None):
+    """
+    Add or update a user in the users_col.
+    Stores user_id, first_name or username (if available), and joined_date (UTC).
+    """
+    user_data = {
+        "user_id": user_id,
+        "joined": datetime.now(timezone.utc)
+    }
+    if first_name:
+        user_data["first_name"] = first_name
+    if username:
+        user_data["username"] = username
+
     users_col.update_one(
         {"user_id": user_id},
-        {"$set": {"user_id": user_id}},
+        {"$set": user_data},
         upsert=True
     )
 

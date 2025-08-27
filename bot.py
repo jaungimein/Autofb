@@ -565,6 +565,7 @@ async def tmdb_command(client, message):
     "restore", "index", "del", "restart", "chatop"]))
 async def instant_search_handler(client, message):
     reply = None
+    reply = await message.reply_text("Searching please wait ...")
     try: 
         query = sanitize_query(message.text)
         query_id = store_query(query)
@@ -593,7 +594,7 @@ async def instant_search_handler(client, message):
             ])
         reply_markup = InlineKeyboardMarkup(buttons)
         reply = await safe_api_call(
-            message.reply_text(
+            reply.edit_text(
                 text,
                 reply_markup=reply_markup,
                 parse_mode=enums.ParseMode.HTML

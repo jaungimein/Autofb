@@ -784,7 +784,6 @@ async def delete_tmdb_callback(client, callback_query: CallbackQuery):
             await callback_query.answer("Not found in database.", show_alert=True)
     except Exception as e:
         logger.error(f"Error in delete_tmdb_callback: {e}")
-        await callback_query.answer("Error deleting TMDB record.", show_alert=True)
 
 @bot.on_message(filters.command("chatop") & filters.private & filters.user(OWNER_ID))
 async def chatop_handler(client, message: Message):

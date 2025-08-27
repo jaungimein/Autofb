@@ -627,7 +627,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     if not files:
         await callback_query.edit_message_text(
             f"<b>❌ No files found for {query}.</b>\n\n"
-            f"{HELP_TEXT}",
+            f"{HELP_TEXT.html}",
             parse_mode=enums.ParseMode.HTML,
             disable_web_page_preview=True
         )

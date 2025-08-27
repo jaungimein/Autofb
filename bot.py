@@ -625,7 +625,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     channel_name = channel_info.get('channel_name', str(channel_id)) if channel_info else str(channel_id)
 
     if not files:
-        await callback_query.edit_text(
+        await callback_query.edit_message_text(
             "<b>❌ No files found.</b>\n\n",
             parse_mode=enums.ParseMode.HTML,
             disable_web_page_preview=True
@@ -664,7 +664,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     reply_markup = InlineKeyboardMarkup(buttons + ([page_buttons] if page_buttons else []))
 
     try:
-        await callback_query.edit_text(
+        await callback_query.edit_message_text(
             text,
             reply_markup=reply_markup,
             parse_mode=enums.ParseMode.HTML

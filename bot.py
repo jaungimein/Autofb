@@ -764,6 +764,9 @@ async def noop_callback_handler(client, callback_query: CallbackQuery):
 @bot.on_callback_query(filters.regex(r"^delete_tmdb:(\w+):(\d+)$"))
 async def delete_tmdb_callback(client, callback_query: CallbackQuery):
     try:
+        if callback_query.from_user.id != OWNER_ID:
+            await callback_query.answer(text="This button is for Admin Only", show_alert=True)
+            return
         tmdb_type = callback_query.matches[0].group(1)
         tmdb_id = int(callback_query.matches[0].group(2))
 

@@ -549,7 +549,14 @@ async def tmdb_command(client, message):
         )
         
         if poster_url:
-            keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
+            buttons = []
+            if trailer:
+                buttons.append(InlineKeyboardButton("🎥 Trailer", url=trailer))
+            buttons.append(
+                InlineKeyboardButton("🗑️ Delete", 
+                                     callback_data=f"delete_tmdb:{tmdb_type}:{tmdb_id}"
+                                    ))
+            keyboard = InlineKeyboardMarkup([buttons])
             await safe_api_call(
                 client.send_photo(
                     UPDATE_CHANNEL_ID,
@@ -772,11 +779,6 @@ async def delete_tmdb_callback(client, callback_query: CallbackQuery):
 
         result = tmdb_col.delete_one({"tmdb_type": tmdb_type, "tmdb_id": tmdb_id})
         if result.deleted_count > 0:
-            await callback_query.edit_message_caption(
-                caption=f"🗑️ Deleted TMDB record: <b>{tmdb_type}/{tmdb_id}</b>",
-                parse_mode=enums.ParseMode.HTML,
-                reply_markup=None
-            )
             await callback_query.answer("Deleted from database.", show_alert=True)
         else:
             await callback_query.answer("Not found in database.", show_alert=True)

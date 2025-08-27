@@ -470,7 +470,8 @@ async def file_queue_worker(bot):
             else:
                 upsert_file_info(file_info)
                 inline_reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("Delete", callback_data=f"file:{file_info['channel_id']}:{file_info['message_id']}")]])
-                try:    
+                try:
+                    await asyncio.sleep(3)   
                     await safe_api_call(message.edit_reply_markup(inline_reply_markup))
                 except Exception as e:
                     pass

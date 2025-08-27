@@ -649,6 +649,8 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     if page > 1:
         prev_data = f"search_channel:{query_id}:{channel_id}:{page - 1}"
         page_buttons.append(InlineKeyboardButton("⬅️ Prev", callback_data=prev_data))
+    # Page info button (not clickable)
+    page_buttons.append(InlineKeyboardButton(f"Page {page}/{total_pages}", callback_data="noop"))
     if page < total_pages:
         next_data = f"search_channel:{query_id}:{channel_id}:{page + 1}"
         page_buttons.append(InlineKeyboardButton("➡️ Next", callback_data=next_data))
@@ -681,7 +683,6 @@ async def send_file_callback(client, callback_query: CallbackQuery):
             token_id = token_doc["token_id"] if token_doc else generate_token(user_id)
             short_link = shorten_url(get_token_link(token_id, BOT_USERNAME))
             await callback_query.edit_message_text(
-                chat_id=user_id,
                 text=(
                     "🎉 Just one step away!\n\n"
                     "To access files, please contribute a little by clicking the link below. "

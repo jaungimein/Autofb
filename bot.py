@@ -563,9 +563,8 @@ async def tmdb_command(client, message):
 @bot.on_message(filters.private & filters.text & ~filters.command([
     "start", "stats", "add", "rm", "broadcast", "log", "tmdb", 
     "restore", "index", "del", "restart", "chatop"]))
-async def instant_search_handler(_, message):
+async def instant_search_handler(client, message):
     reply = None
-    reply = await message.reply_text("Searching please wait ...")
     try: 
         query = sanitize_query(message.text)
         query_id = store_query(query)
@@ -578,7 +577,9 @@ async def instant_search_handler(_, message):
             return
 
         # Show channel selection buttons
-        text = (f"<b>✅ Select a Category</b>")
+        text = (f"<b>🕵🏻‍♂️ Query:</b> {query}\n"
+                f"<b>✅ Select a Category</b>"
+                )
         buttons = []
         for c in channels:
             chan_id = c["channel_id"]
@@ -592,7 +593,7 @@ async def instant_search_handler(_, message):
             ])
         reply_markup = InlineKeyboardMarkup(buttons)
         reply = await safe_api_call(
-            reply.edit_text(
+            message.reply_text(
                 text,
                 reply_markup=reply_markup,
                 parse_mode=enums.ParseMode.HTML
@@ -626,7 +627,11 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
 
     if not files:
         await callback_query.edit_message_text(
-            "<b>❌ No files found.</b>\n\n",
+            f"<b>🕵🏻‍♂️ Query: <code>{query}</b></code>\n"
+            f"<b>🛒 Category:</b> {channel_name}\n"
+            f"<b>❌ No files found</b>.\n\n"            
+            f"📝 <i>Tip: Double-check your spelling or try searching the title on <a href='https://www.google.com/search?q={quote_plus(query)}'>Google</a>.</i>\n\n"
+            f"<b>❓ What's available? Check <a href='{UPDATE_CHANNEL_LINK}'>here</a>.</b>",
             parse_mode=enums.ParseMode.HTML,
             disable_web_page_preview=True
         )
@@ -634,11 +639,16 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
             LOG_CHANNEL_ID, 
             f"🔎 No result for query:\n<code>{query}</code> in <b>{channel_name}</b>\nUser: {user_link}"
         )
-        await callback_query.answer(text="<b>❌ No files found</b>", show_alert=True, url=f"https://telegram.dog/{BOT_USERNAME}?start=help")
+        await callback_query.answer()
         return
 
     total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE
-    text = (f"<b>📂 Found:</b> {total_files} files in {channel_name} for {query}\n")
+    text = (
+        f"<b>🕵🏻‍♂️ Query: <code>{query}</b></code>\n"
+        f"<b>🛒 Category:</b> {channel_name}\n"
+        f"<b>📂 Found:</b> {total_files} files\n"
+        f"<b>📖 Page:</b> {page} | {total_pages}\n"
+    )
     buttons = []
     for f in files:
         file_link = encode_file_link(f["channel_id"], f["message_id"])
@@ -656,7 +666,6 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     if page > 1:
         prev_data = f"search_channel:{query_id}:{channel_id}:{page - 1}"
         page_buttons.append(InlineKeyboardButton("⬅️ Prev", callback_data=prev_data))
-    page_buttons.append(InlineKeyboardButton(f"{page} | {total_pages}",))
     if page < total_pages:
         next_data = f"search_channel:{query_id}:{channel_id}:{page + 1}"
         page_buttons.append(InlineKeyboardButton("➡️ Next", callback_data=next_data))
@@ -688,13 +697,20 @@ async def send_file_callback(client, callback_query: CallbackQuery):
             })
             token_id = token_doc["token_id"] if token_doc else generate_token(user_id)
             short_link = shorten_url(get_token_link(token_id, BOT_USERNAME))
-            text=(
-                "🎉 Just one step away!"
-                "To access files, please contribute a little by clicking the link below. "
-                "It’s completely free for you — and it helps keep the bot running by supporting the server costs. ❤️\n\n"
-                "Click below to get 24-hour access:"
+            reply = await bot.send_message(
+                chat_id=user_id,
+                text=(
+                    "🎉 Just one step away!\n\n"
+                    "To access files, please contribute a little by clicking the link below. "
+                    "It’s completely free for you — and it helps keep the bot running by supporting the server costs. ❤️\n\n"
+                    "Click below to get 24-hour access:"
+                ),
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("🔓 Get Access Link", url=short_link)]]
+                )
             )
-            await callback_query.answer(text, show_alert=True, url=short_link, )
+            await callback_query.answer("Access link sent")
+            bot.loop.create_task(delete_after_delay(reply))
             return
 
         if user_file_count[user_id] >= MAX_FILES_PER_SESSION:
@@ -719,32 +735,11 @@ async def send_file_callback(client, callback_query: CallbackQuery):
         )
         user_file_count[user_id] += 1
         await callback_query.answer(
-            f"File will be auto deleted in 5 minutes — forward it.", show_alert=True)
+            f"File will be auto deleted in 5 minutes — forward it.")
         bot.loop.create_task(delete_after_delay(send_file))
     except Exception as e:
-        logger.error(f"Error in send_file_callback: {e}")
+        await callback_query.answer(f"Failed: {e}", show_alert=True)
 
-@bot.on_callback_query(filters.regex(r"^file:(-?\d+):(\d+)$"))
-async def delete_file_callback(client, callback_query: CallbackQuery):
-    try:
-        channel_id = int(callback_query.matches[0].group(1))
-        message_id = int(callback_query.matches[0].group(2))
-
-        # Delete from database
-        result = files_col.delete_one({"channel_id": channel_id, "message_id": message_id})
-
-        if result.deleted_count > 0:
-            await callback_query.answer("🗑️ File deleted from database.", show_alert=True)
-            try:
-                await bot.delete_messages(channel_id, message_id)
-            except Exception as e:
-                pass  # It's ok if the message is already deleted
-        else:
-            await callback_query.answer("❌ File not found in database.", show_alert=True)
-    except Exception as e:
-        logger.error(f"Error in delete_file_callback: {e}")
-        await callback_query.answer("Error deleting file.", show_alert=True)
-        
 @bot.on_message(filters.command("chatop") & filters.private & filters.user(OWNER_ID))
 async def chatop_handler(client, message: Message):
     """

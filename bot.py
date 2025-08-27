@@ -649,7 +649,6 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     if page > 1:
         prev_data = f"search_channel:{query_id}:{channel_id}:{page - 1}"
         page_buttons.append(InlineKeyboardButton("⬅️ Prev", callback_data=prev_data))
-    page_buttons.append(InlineKeyboardButton(f"{page} | {total_pages}",))
     if page < total_pages:
         next_data = f"search_channel:{query_id}:{channel_id}:{page + 1}"
         page_buttons.append(InlineKeyboardButton("➡️ Next", callback_data=next_data))

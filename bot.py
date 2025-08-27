@@ -119,7 +119,7 @@ async def start_handler(client, message):
 
         # --- HELP MSG ---
         elif len(message.command) == 2 and message.command[1].startswith("help"):
-            reply_msg = await safe_api_call(message.reply_text(HELP_TEXT,
+            reply_msg = await safe_api_call(message.reply_text(f'{HELP_TEXT}',
                 parse_mode=enums.ParseMode.HTML
                 )
             )
@@ -625,11 +625,16 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     channel_name = channel_info.get('channel_name', str(channel_id)) if channel_info else str(channel_id)
 
     if not files:
+        await callback_query.edit_message_text(
+            "<b>❌ No files found for {query}.</b>",
+            parse_mode=enums.ParseMode.HTML,
+            disable_web_page_preview=True
+        )
         await bot.send_message(
             LOG_CHANNEL_ID, 
             f"🔎 No result for query:\n<code>{query}</code> in <b>{channel_name}</b>\nUser: {user_link}"
         )
-        await callback_query.answer(text="<b>❌ No files found</b>", show_alert=True, url=f"https://t.me/{BOT_USERNAME}?start=help")
+        await callback_query.answer(url=f"https://t.me/{BOT_USERNAME}?start=help")
         return
 
     total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE

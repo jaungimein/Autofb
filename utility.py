@@ -405,7 +405,7 @@ async def safe_api_call(coro):
         except FloodWait as e:
             await asyncio.sleep(e.value * 1.2)
         except Exception:
-            pass
+            break
 
 async def delete_after_delay(message):
     await asyncio.sleep(AUTO_DELETE_SECONDS)
@@ -468,11 +468,9 @@ async def file_queue_worker(bot):
                         )
             else:
                 upsert_file_info(file_info)
-                try:
-                    inline_reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("Delete", callback_data=f"file:{file_info['channel_id']}:{file_info['message_id']}")]])    
-                    await safe_api_call(message.edit_reply_markup(inline_reply_markup))
-                except Exception:
-                    pass
+                inline_reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("Delete", callback_data=f"file:{file_info['channel_id']}:{file_info['message_id']}")]])    
+                await safe_api_call(message.edit_reply_markup(inline_reply_markup))
+
                 if message.audio:
                     audio_path = await bot.download_media(message)
                     thumb_path = await get_audio_thumbnail(audio_path)

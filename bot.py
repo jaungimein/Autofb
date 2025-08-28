@@ -204,6 +204,7 @@ async def channel_file_handler(client, message):
             "Delete", callback_data=f"file:{message.chat.id}:{message.id}")
     ]])
     try:
+        await asyncio.sleep(3)
         await message.edit_reply_markup(inline_reply_markup)
     except FloodWait as F:
         await asyncio.sleep(F.value * 1.2)

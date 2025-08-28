@@ -502,7 +502,7 @@ async def file_queue_worker(bot):
                                 )
                                 keyboard = InlineKeyboardMarkup([buttons])
                                 try:
-
+                                    await asyncio.sleep(3)
                                     await bot.send_photo(
                                         UPDATE_CHANNEL_ID,
                                         photo=poster_url,

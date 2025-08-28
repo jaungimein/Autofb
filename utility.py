@@ -322,24 +322,14 @@ async def restore_tmdb_photos(bot, start_id=None):
         try:
             results = await get_by_id(tmdb_type, tmdb_id)
             poster_url = results.get('poster_url')
-            trailer = results.get('trailer_url')
             info = results.get('message')
             if poster_url:
-                buttons = []
-                if trailer:
-                    buttons.append(InlineKeyboardButton("🎥 Trailer", url=trailer))
-                buttons.append(InlineKeyboardButton(
-                    "🗑️ Delete", callback_data=f"delete_tmdb:{tmdb_type}:{tmdb_id}"
-                    )
-                )
-                keyboard = InlineKeyboardMarkup([buttons])
                 await safe_api_call(
                     bot.send_photo(
                         UPDATE_CHANNEL_ID,
                         photo=poster_url,
                         caption=info,
-                        parse_mode=enums.ParseMode.HTML,
-                        reply_markup=keyboard
+                        parse_mode=enums.ParseMode.HTML
                     )
                 )
         except Exception as e:
@@ -467,10 +457,6 @@ async def file_queue_worker(bot):
                         )
             else:
                 upsert_file_info(file_info)
-                if not getattr(message, "media_group_id", None):
-                    inline_reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("Delete", callback_data=f"file:{file_info['channel_id']}:{file_info['message_id']}")]])    
-                    await safe_api_call(message.edit_reply_markup(inline_reply_markup))
-
                 if message.audio:
                     audio_path = await bot.download_media(message)
                     thumb_path = await get_audio_thumbnail(audio_path)
@@ -495,26 +481,16 @@ async def file_queue_worker(bot):
                         if not exists:
                             results = await get_by_id(tmdb_type, tmdb_id)
                             poster_url = results.get('poster_url')
-                            trailer = results.get('trailer_url')
                             info = results.get('message')
                             if poster_url:
-                                # Build keyboard with Trailer (if available) and Delete button
-                                buttons = []
-                                if trailer:
-                                    buttons.append(InlineKeyboardButton("🎥 Trailer", url=trailer))
-                                buttons.append(
-                                    InlineKeyboardButton(
-                                        "🗑️ Delete",
-                                        callback_data=f"delete_tmdb:{tmdb_type}:{tmdb_id}"
-                                    )
-                                )
-                                keyboard = InlineKeyboardMarkup([buttons])
-                                await safe_api_call(bot.send_photo(
+                                await safe_api_call(
+                                    bot.send_photo(
                                          UPDATE_CHANNEL_ID,
                                          photo=poster_url,
                                          caption=info,
-                                         parse_mode=enums.ParseMode.HTML,
-                                         reply_markup=keyboard))                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+                                         parse_mode=enums.ParseMode.HTML
+                                    )
+                                )                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                 upsert_tmdb_info(tmdb_id, tmdb_type)
 
                 except Exception as e:

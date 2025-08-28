@@ -12,7 +12,7 @@ from collections import defaultdict
 
 from pyrogram import Client, enums, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
-from pyrogram.errors import ListenerTimeout, FloodWait
+from pyrogram.errors import ListenerTimeout
 import uvicorn
 
 from config import *
@@ -523,7 +523,6 @@ async def tmdb_command(client, message):
         tmdb_type, tmdb_id = await extract_tmdb_link(tmdb_link)
         result = await get_by_id(tmdb_type, tmdb_id)
         poster_url = result.get('poster_url')
-        trailer = result.get('trailer_url')
         info = result.get('message')
 
         update = {
@@ -536,21 +535,12 @@ async def tmdb_command(client, message):
         )
         
         if poster_url:
-            buttons = []
-            if trailer:
-                buttons.append(InlineKeyboardButton("🎥 Trailer", url=trailer))
-            buttons.append(
-                InlineKeyboardButton("🗑️ Delete", 
-                                     callback_data=f"delete_tmdb:{tmdb_type}:{tmdb_id}"
-                                    ))
-            keyboard = InlineKeyboardMarkup([buttons])
             await safe_api_call(
                 client.send_photo(
                     UPDATE_CHANNEL_ID,
                     photo=poster_url,
                     caption=info,
-                    parse_mode=enums.ParseMode.HTML,
-                    reply_markup=keyboard
+                    parse_mode=enums.ParseMode.HTML
                 )
             )
     except Exception as e:
@@ -730,47 +720,9 @@ async def send_file_callback(client, callback_query: CallbackQuery):
     except Exception as e:
         await callback_query.answer(f"Failed: {e}", show_alert=True)
 
-@bot.on_callback_query(filters.regex(r"^file:(-?\d+):(\d+)$"))
-async def delete_file_callback(client, callback_query: CallbackQuery):
-    try:
-        channel_id = int(callback_query.matches[0].group(1))
-        message_id = int(callback_query.matches[0].group(2))
-
-        # Delete from database
-        result = files_col.delete_one({"channel_id": channel_id, "message_id": message_id})
-
-        if result.deleted_count > 0:
-            await callback_query.answer("🗑️ File deleted from database.", show_alert=True)
-            try:
-                await bot.delete_messages(channel_id, message_id)
-            except Exception as e:
-                pass  # It's ok if the message is already deleted
-        else:
-            await callback_query.answer("❌ File not found in database.", show_alert=True)
-    except Exception as e:
-        logger.error(f"Error in delete_file_callback: {e}")
-        await callback_query.answer("Error deleting file.", show_alert=True)
-
 @bot.on_callback_query(filters.regex(r"^noop$"))
 async def noop_callback_handler(client, callback_query: CallbackQuery):
     await callback_query.answer()  # Instantly respond, does nothing
-
-@bot.on_callback_query(filters.regex(r"^delete_tmdb:(\w+):(\d+)$"))
-async def delete_tmdb_callback(client, callback_query: CallbackQuery):
-    try:
-        if callback_query.from_user.id != OWNER_ID:
-            await callback_query.answer(text="This button is for Admin Only", show_alert=True)
-            return
-        tmdb_type = callback_query.matches[0].group(1)
-        tmdb_id = int(callback_query.matches[0].group(2))
-
-        result = tmdb_col.delete_one({"tmdb_type": tmdb_type, "tmdb_id": tmdb_id})
-        if result.deleted_count > 0:
-            await callback_query.answer("Deleted from database.", show_alert=True)
-        else:
-            await callback_query.answer("Not found in database.", show_alert=True)
-    except Exception as e:
-        logger.error(f"Error in delete_tmdb_callback: {e}")
 
 @bot.on_message(filters.command("chatop") & filters.private & filters.user(OWNER_ID))
 async def chatop_handler(client, message: Message):

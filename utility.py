@@ -325,9 +325,14 @@ async def restore_tmdb_photos(bot, start_id=None):
             trailer = results.get('trailer_url')
             info = results.get('message')
             if poster_url:
-                keyboard = InlineKeyboardMarkup(
-                    [[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
-                await asyncio.sleep(3)  # Avoid hitting API limits
+                buttons = []
+                if trailer:
+                    buttons.append(InlineKeyboardButton("🎥 Trailer", url=trailer))
+                buttons.append(InlineKeyboardButton(
+                    "🗑️ Delete", callback_data=f"delete_tmdb:{tmdb_type}:{tmdb_id}"
+                    )
+                )
+                keyboard = InlineKeyboardMarkup([buttons])
                 await safe_api_call(
                     bot.send_photo(
                         UPDATE_CHANNEL_ID,

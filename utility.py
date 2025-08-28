@@ -395,10 +395,10 @@ async def safe_api_call(coro):
     """Utility wrapper to add delay before every bot API call."""
     while True:
         try:
-            return await coro
+            return coro
         except FloodWait as e:
             await asyncio.sleep(e.value * 1.2)
-            return await coro
+            return coro
         except Exception:
             pass
 
@@ -463,6 +463,11 @@ async def file_queue_worker(bot):
                         )
             else:
                 upsert_file_info(file_info)
+                try:
+                    inline_reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("Delete", callback_data=f"file:{file_info['channel_id']}:{file_info['message_id']}")]])    
+                    await safe_api_call(message.edit_reply_markup(inline_reply_markup))
+                except Exception:
+                    pass
                 if message.audio:
                     audio_path = await bot.download_media(message)
                     thumb_path = await get_audio_thumbnail(audio_path)
@@ -501,27 +506,12 @@ async def file_queue_worker(bot):
                                     )
                                 )
                                 keyboard = InlineKeyboardMarkup([buttons])
-                                try:
-                                    await asyncio.sleep(3)
-                                    await bot.send_photo(
-                                        UPDATE_CHANNEL_ID,
-                                        photo=poster_url,
-                                        caption=info,
-                                        parse_mode=enums.ParseMode.HTML,
-                                        reply_markup=keyboard
-                                    )
-                                except FloodWait as F:
-                                    await asyncio.sleep(F.value * 1.2)
-                                    await bot.send_photo(
-                                        UPDATE_CHANNEL_ID,
-                                        photo=poster_url,
-                                        caption=info,
-                                        parse_mode=enums.ParseMode.HTML,
-                                        reply_markup=keyboard
-                                    )
-                                except Exception:
-                                    pass
-                                
+                                await safe_api_call(bot.send_photo(
+                                         UPDATE_CHANNEL_ID,
+                                         photo=poster_url,
+                                         caption=info,
+                                         parse_mode=enums.ParseMode.HTML,
+                                         reply_markup=keyboard))                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                 upsert_tmdb_info(tmdb_id, tmdb_type)
 
                 except Exception as e:

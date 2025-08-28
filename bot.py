@@ -198,19 +198,6 @@ async def channel_file_handler(client, message):
     allowed_channels = await get_allowed_channels()
     if message.chat.id not in allowed_channels:
         return
-    
-    inline_reply_markup = InlineKeyboardMarkup([
-        [InlineKeyboardButton(
-            "Delete", callback_data=f"file:{message.chat.id}:{message.id}")
-    ]])
-    try:
-        await asyncio.sleep(3)
-        await message.edit_reply_markup(inline_reply_markup)
-    except FloodWait as F:
-        await asyncio.sleep(F.value * 1.2)
-        await message.edit_reply_markup(inline_reply_markup)
-    except Exception:
-        pass
 
     await queue_file_for_processing(message, reply_func=message.reply_text)
     await file_queue.join()

@@ -690,7 +690,7 @@ async def send_file_callback(client, callback_query: CallbackQuery):
                     [[InlineKeyboardButton("🔓 Get Access Link", url=short_link)]]
                 )
             ))
-            callback_query.answer()
+            await callback_query.answer()
             return
 
         if user_file_count[user_id] >= MAX_FILES_PER_SESSION:

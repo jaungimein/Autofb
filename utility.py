@@ -416,7 +416,6 @@ async def extract_tmdb_link(tmdb_url):
     movie_pattern = r'themoviedb\.org\/movie\/(\d+)'
     tv_pattern = r'themoviedb\.org\/tv\/(\d+)'
     collection_pattern = r'themoviedb\.org\/collection\/(\d+)'
-    
     if re.search(movie_pattern, tmdb_url):
         tmdb_type = 'movie'
         tmdb_id = int(re.search(movie_pattern, tmdb_url).group(1))
@@ -426,6 +425,8 @@ async def extract_tmdb_link(tmdb_url):
     elif re.search(collection_pattern, tmdb_url):
         tmdb_type = 'collection'
         tmdb_id = int(re.search(collection_pattern, tmdb_url).group(1)) 
+    else:
+        raise ValueError("Invalid TMDB link. Must be a movie, tv, or collection link.")
     return tmdb_type, tmdb_id
         
 # =========================

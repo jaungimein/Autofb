@@ -55,7 +55,6 @@ bot = Client(
     api_id=API_ID,
     api_hash=API_HASH,
     bot_token=BOT_TOKEN,
-    workers=5,
     parse_mode=enums.ParseMode.HTML
 )
 
@@ -178,14 +177,14 @@ async def start_handler(client, message):
                 f"🗓️ You joined: <code>{joined_str}</code>\n\n"
                 f"❤️ Enjoy your experience here! ❤️"
             )
-            reply_msg = await message.reply_text(welcome_text,
+            reply_msg = await safe_api_call(message.reply_text(welcome_text,
                 reply_markup=InlineKeyboardMarkup(
                     [
                     [InlineKeyboardButton("Updates Channel", url=f"{UPDATE_CHANNEL_LINK}")]
                     ]
                 ),
                 parse_mode=enums.ParseMode.HTML
-                )
+                ))
 
     except Exception as e:
         reply_msg = await safe_api_call(message.reply_text(f"⚠️ An unexpected error occurred: {e}"))

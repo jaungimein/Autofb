@@ -441,25 +441,19 @@ async def extract_tmdb_link(tmdb_url):
 file_queue = asyncio.Queue()
 
 async def file_queue_worker(bot):
-    processing_count = 0
-    last_reply_func = None
     while True:
         item = await file_queue.get()
         file_info, reply_func, message, duplicate = item
-        processing_count += 1
-        if reply_func:
-            last_reply_func = reply_func
         try:
             # Check for duplicate by file name in this channel
             existing = files_col.find_one({
                 "channel_id": file_info["channel_id"],
                 "file_name": file_info["file_name"]
             })
-            
+
             if existing and duplicate:
                 telegram_link = generate_c_link(file_info["channel_id"], file_info["message_id"])
-                if reply_func:
-                    if duplicate:
+                if duplicate:
                         await safe_api_call(
                             bot.send_message(
                                 LOG_CHANNEL_ID,
@@ -537,14 +531,6 @@ async def file_queue_worker(bot):
             logger.error(f"❌ Error saving file: {e}")
         finally:
             file_queue.task_done()
-            if file_queue.empty():
-                if processing_count > 1 and last_reply_func:
-                    try:
-                        logger.info("✅ Done processing file(s) in the queue.")
-                    except Exception:
-                        pass
-                processing_count = 0  # Reset for next batch
-                last_reply_func = None  # Reset for next batch
 
             
 

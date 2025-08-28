@@ -18,6 +18,9 @@ logging.basicConfig(
 
 logger = logging.getLogger("sharing_bot")
 
+# Suppress Pyrogram logs except for errors
+logging.getLogger("pyrogram").setLevel(logging.ERROR)
+
 CONFIG_FILE_URL = environ.get('CONFIG_FILE_URL')
 try:
     if len(CONFIG_FILE_URL) == 0:

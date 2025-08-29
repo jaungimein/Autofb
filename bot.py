@@ -20,7 +20,7 @@ from utility import (
     add_user, is_token_valid, authorize_user, is_user_authorized,
     generate_token, shorten_url, get_token_link, extract_channel_and_msg_id,
     safe_api_call, get_allowed_channels, invalidate_search_cache,
-    auto_delete_message, human_readable_size,
+    auto_delete_message, human_readable_size, remove_redandent,
     queue_file_for_processing, file_queue_worker,
     file_queue, extract_tmdb_link, periodic_expiry_cleanup,
     restore_tmdb_photos, build_search_pipeline,
@@ -200,6 +200,56 @@ async def channel_file_handler(client, message):
     await queue_file_for_processing(message, reply_func=message.reply_text)
     await file_queue.join()
     invalidate_search_cache()
+
+@bot.on_message(filters.private & (filters.document | filters.video | filters.audio) & filters.user(OWNER_ID))
+async def forward_file_handler(client, message):
+    # Ask user which channel to copy to, using allowed_channels_col
+    channels = list(allowed_channels_col.find({}, {"_id": 0, "channel_id": 1, "channel_name": 1}))
+    if not channels:
+        await message.reply_text("No allowed channels available to copy to.")
+        return
+
+    buttons = []
+    for c in channels:
+        chan_id = c["channel_id"]
+        chan_name = c.get("channel_name", str(chan_id))
+        buttons.append([
+            InlineKeyboardButton(
+                chan_name,
+                callback_data=f"copy_to_channel:{chan_id}"
+            )
+        ])
+    reply_markup = InlineKeyboardMarkup(buttons)
+    reply = await message.reply_text(
+        "Select a channel to copy this file to:",
+        reply_markup=reply_markup
+    )
+
+    # Store message id in a temp dict for callback handler
+    if not hasattr(forward_file_handler, "pending"):
+        forward_file_handler.pending = {}
+    forward_file_handler.pending[message.from_user.id] = message.id
+
+@bot.on_callback_query(filters.regex(r"^copy_to_channel:(-?\d+)$"))
+async def copy_to_channel_callback(client, callback_query: CallbackQuery):
+    chan_id = int(callback_query.matches[0].group(1))
+    user_id = callback_query.from_user.id
+    pending = getattr(forward_file_handler, "pending", {})
+    msg_id = pending.get(user_id)
+    if not msg_id:
+        await callback_query.answer("No file to copy.", show_alert=True)
+        return
+    try:
+        orig_msg = await client.get_messages(user_id, msg_id)
+        caption = remove_redandent(orig_msg.caption) if orig_msg.caption else ""
+        sent = await orig_msg.copy(chan_id, caption=f"<code>{caption}</code>")
+        await callback_query.edit_message_text(f"✅ Copied to channel {chan_id} (message_id: {sent.id})")
+    except Exception as e:
+        await callback_query.edit_message_text(f"❌ Failed to copy: {e}")
+    finally:
+        pending.pop(user_id, None)
+
+
 
 @bot.on_message(filters.command("index") & filters.private & filters.user(OWNER_ID))
 async def index_channel_files(client, message):

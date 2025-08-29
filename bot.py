@@ -104,8 +104,7 @@ async def start_handler(client, message):
         user_link = await get_user_link(message.from_user) 
         first_name = message.from_user.first_name or None
         username = message.from_user.username or None
-        if user_id != OWNER_ID:
-            add_user(user_id, first_name, username)
+        add_user(user_id, first_name, username)
 
         # --- Token-based authorization ---
         if len(message.command) == 2 and message.command[1].startswith("token_"):

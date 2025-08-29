@@ -156,10 +156,6 @@ def add_user(user_id, first_name=None, username=None):
         "user_id": user_id,
         "joined": datetime.now(timezone.utc)
     }
-    if first_name:
-        user_data["first_name"] = first_name
-    if username:
-        user_data["username"] = username
 
     users_col.update_one(
         {"user_id": user_id},

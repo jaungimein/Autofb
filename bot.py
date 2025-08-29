@@ -20,7 +20,7 @@ from utility import (
     add_user, is_token_valid, authorize_user, is_user_authorized,
     generate_token, shorten_url, get_token_link, extract_channel_and_msg_id,
     safe_api_call, get_allowed_channels, invalidate_search_cache,
-    auto_delete_message, human_readable_size, remove_redandent,
+    auto_delete_message, human_readable_size, remove_unwanted,
     queue_file_for_processing, file_queue_worker,
     file_queue, extract_tmdb_link, periodic_expiry_cleanup,
     restore_tmdb_photos, build_search_pipeline,
@@ -241,8 +241,13 @@ async def copy_to_channel_callback(client, callback_query: CallbackQuery):
         return
     try:
         orig_msg = await client.get_messages(user_id, msg_id)
-        caption = remove_redandent(orig_msg.caption) if orig_msg.caption else ""
-        sent = await orig_msg.copy(chan_id, caption=f"<code>{caption}</code>")
+        caption = remove_unwanted(orig_msg.caption) if orig_msg.caption else ""
+        sent = await client.send_document(
+            chat_id=chan_id,
+            document=orig_msg.document.file_id if orig_msg.document else orig_msg.video.file_id if orig_msg.video else orig_msg.audio.file_id if orig_msg.audio else None,
+            caption=f"<code>{caption}</code>" if caption else None,
+            parse_mode=enums.ParseMode.HTML
+        )
         await callback_query.edit_message_text(f"✅ Copied to channel {chan_id} (message_id: {sent.id})")
     except Exception as e:
         await callback_query.edit_message_text(f"❌ Failed to copy: {e}")

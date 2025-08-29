@@ -539,12 +539,6 @@ async def periodic_expiry_cleanup(interval_seconds=3600 * 4):
         await asyncio.sleep(interval_seconds)
 
 
-async def remove_unwanted(input_string):
-    # Use regex to match .mkv or .mp4 and everything that follows
-    result = re.split(r'(\.mkv|\.mp4)', input_string)
-    # Join the first two parts to get the string up to the extension
-    return ''.join(result[:2])
-
 def remove_redandent(filename):
     """
     Remove common username patterns from a filename while preserving the content title.

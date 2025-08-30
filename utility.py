@@ -147,21 +147,18 @@ async def get_allowed_channels():
         for doc in allowed_channels_col.find({}, {"_id": 0, "channel_id": 1})
     ]
 
-def add_user(user_id, first_name=None, username=None):
+def add_user(user_id):
     """
-    Add or update a user in the users_col.
-    Stores user_id, first_name or username (if available), and joined_date (UTC).
+    Add a user to users_col only if not already present.
+    Stores user_id and joined_date (UTC).
     """
-    user_data = {
-        "user_id": user_id,
-        "joined": datetime.now(timezone.utc)
-    }
-
-    users_col.update_one(
-        {"user_id": user_id},
-        {"$set": user_data},
-        upsert=True
-    )
+    if not users_col.find_one({"user_id": user_id}):
+        user_data = {
+            "user_id": user_id,
+            "joined": datetime.now(timezone.utc),
+            "blocked": False
+        }
+        users_col.insert_one(user_data)
 
 def authorize_user(user_id):
     """Authorize a user for 24 hours."""

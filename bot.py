@@ -104,7 +104,21 @@ async def start_handler(client, message):
         user_link = await get_user_link(message.from_user) 
         first_name = message.from_user.first_name or None
         username = message.from_user.username or None
-        add_user(user_id, first_name, username)
+        # Add user and log if newly added
+        added = add_user(user_id)
+        if added:
+            log_msg = f"👤 New user added:\nID: <code>{user_id}</code>\n"
+            if first_name:
+                log_msg += f"First Name: <b>{first_name}</b>\n"
+            if username:
+                log_msg += f"Username: @{username}\n"
+            await safe_api_call(bot.send_message(LOG_CHANNEL_ID, log_msg, parse_mode=enums.ParseMode.HTML))
+
+        # Check if user is blocked
+        user_doc = users_col.find_one({"user_id": user_id})
+        if user_doc and user_doc.get("blocked", False):
+            return
+
 
         # --- Token-based authorization ---
         if len(message.command) == 2 and message.command[1].startswith("token_"):
@@ -170,23 +184,43 @@ async def start_handler(client, message):
             else:
                 joined_str = "Unknown"
 
+            # Generate invite links for the update channels (no expiry, require admin approval)
+            update_invite = await bot.create_chat_invite_link(
+                UPDATE_CHANNEL_ID, expire_date=None, member_limit=0, creates_join_request=True
+            )
+            update2_invite = await bot.create_chat_invite_link(
+                UPDATE_CHANNEL2_ID, expire_date=None, member_limit=0, creates_join_request=True
+            )
+            # Add a duplicate for UPDATE_CHANNEL_ID as requested
+            update_invite2 = await bot.create_chat_invite_link(
+                UPDATE_CHANNEL_ID, expire_date=None, member_limit=0, creates_join_request=True
+            )
+
             welcome_text = (
                 f"👋 🔰 Hello {user_link}! 🔰\n\n"
                 f"I'm an Auto Filter Bot 🤖 used to search documents\n\n"
                 f"🗓️ You joined: <code>{joined_str}</code>\n\n"
                 f"❤️ Enjoy your experience here! ❤️"
             )
-            reply_msg = await safe_api_call(message.reply_text(welcome_text,
+            reply_msg = await safe_api_call(message.reply_text(
+                welcome_text,
                 reply_markup=InlineKeyboardMarkup(
                     [
-                    [InlineKeyboardButton("Updates Channel", url=f"{UPDATE_CHANNEL_LINK}")]
+                        [
+                            InlineKeyboardButton("Support", url=SUPPORT),
+                            InlineKeyboardButton("Get Updates", callback_data=f"gen_invite:{UPDATE_CHANNEL_ID}")
+                        ],
+                        [
+                            InlineKeyboardButton("Get Updates", callback_data=f"gen_invite:{UPDATE_CHANNEL3_ID}"),
+                            InlineKeyboardButton("Get Updates", callback_data=f"gen_invite:{UPDATE_CHANNEL2_ID}")
+                        ]
                     ]
                 ),
                 parse_mode=enums.ParseMode.HTML
-                ))
+            ))
 
     except Exception as e:
-        reply_msg = await safe_api_call(message.reply_text(f"⚠️ An unexpected error occurred: {e}"))
+        logger.error(f"⚠️ An unexpected error occurred: {e}")
 
     if reply_msg:
         bot.loop.create_task(auto_delete_message(message, reply_msg))
@@ -723,6 +757,41 @@ async def send_file_callback(client, callback_query: CallbackQuery):
 async def noop_callback_handler(client, callback_query: CallbackQuery):
     await callback_query.answer()  # Instantly respond, does nothing
 
+@bot.on_callback_query(filters.regex(r"^gen_invite:(\d+)$"))
+async def generate_and_send_invite(client, callback_query: CallbackQuery):
+    """
+    Generates a custom invite link for the requested update channel,
+    sends it to the user, and revokes it after auto_delete_message completes.
+    """
+    try:
+        channel_map = {
+            str(UPDATE_CHANNEL_ID): UPDATE_CHANNEL_ID,
+            str(UPDATE_CHANNEL2_ID): UPDATE_CHANNEL2_ID,
+            str(UPDATE_CHANNEL3_ID): UPDATE_CHANNEL3_ID,
+        }
+        chan_id = callback_query.matches[0].group(1)
+        if chan_id not in channel_map:
+            await callback_query.answer("Invalid channel.", show_alert=True)
+            return
+        channel_id = channel_map[chan_id]
+        invite = await client.create_chat_invite_link(
+            channel_id, expire_date=None, member_limit=1, creates_join_request=True
+        )
+        reply = await callback_query.message.reply_text(
+            f"🔗 Here is your invite link:\n{invite.invite_link}\n\nThis link will be revoked soon.",
+            disable_web_page_preview=True
+        )
+        await callback_query.answer()
+        async def cleanup():
+            await delete_after_delay(reply)
+            try:
+                await client.revoke_chat_invite_link(channel_id, invite.invite_link)
+            except Exception:
+                pass
+        bot.loop.create_task(cleanup())
+    except Exception as e:
+        logger.error(f"Failed generate_and_send_invite: {e}")
+
 @bot.on_message(filters.command("chatop") & filters.private & filters.user(OWNER_ID))
 async def chatop_handler(client, message: Message):
     """
@@ -756,7 +825,40 @@ async def chatop_handler(client, message: Message):
             await message.reply_text(f"❌ Failed: {e}")
     else:
         await message.reply_text("Invalid operation. Use 'send' or 'del'.")
-        
+
+@bot.on_message(filters.command("block") & filters.private & filters.user(OWNER_ID))
+async def block_user_handler(client, message: Message):
+    """
+    Handles the /block command for the owner.
+    Usage: /block <user_id>
+    Blocks a user by adding their user_id to the auth_users_col with a 'blocked' flag.
+    """
+    args = message.text.split()
+    if len(args) != 2:
+        await message.reply_text("Usage: /block <user_id>")
+        return
+    try:
+        user_id = int(args[1])
+        users_col.update_one(
+            {"user_id": user_id},
+            {"$set": {"blocked": True}},
+            upsert=True
+        )
+        await message.reply_text(f"✅ User {user_id} has been blocked.")
+    except Exception as e:
+        await message.reply_text(f"❌ Failed to block user: {e}")
+
+@bot.on_chat_join_request()
+async def approve_join_request_handler(client, join_request):
+    """
+    Automatically approves join requests for channels where the bot is admin.
+    """
+    try:
+        await client.approve_chat_join_request(join_request.chat.id, join_request.from_user.id)
+        # Optionally, you can log or notify somewhere:
+        # await bot.send_message(LOG_CHANNEL_ID, f"Approved join request for {join_request.from_user.mention} in {join_request.chat.title}")
+    except Exception as e:
+        logger.error(f"Failed to approve join request: {e}")        
 # =========================
 # Main Entrypoint
 # =========================

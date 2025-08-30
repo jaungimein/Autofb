@@ -104,25 +104,6 @@ async def start_handler(client, message):
         user_link = await get_user_link(message.from_user) 
         first_name = message.from_user.first_name or None
         username = message.from_user.username or None
-        # Add user (or fetch existing)
-        user_doc = add_user(user_id)
-
-        # Log if newly added
-        if user_doc["_new"]:
-            log_msg = f"👤 New user added:\nID: <code>{user_id}</code>\n"
-            if first_name:
-                log_msg += f"First Name: <b>{first_name}</b>\n"
-            if username:
-                log_msg += f"Username: @{username}\n"
-            await safe_api_call(
-                bot.send_message(LOG_CHANNEL_ID, log_msg, parse_mode=enums.ParseMode.HTML)
-            )
-            
-        logger.info(f"Blocked check for {user_id}: {user_doc.get('blocked')}")
-
-        # Check if user is blocked
-        if user_doc.get("blocked", True):
-            return
 
         # --- Token-based authorization ---
         if len(message.command) == 2 and message.command[1].startswith("token_"):

@@ -104,6 +104,23 @@ async def start_handler(client, message):
         user_link = await get_user_link(message.from_user) 
         first_name = message.from_user.first_name or None
         username = message.from_user.username or None
+        # Add user (or fetch existing)
+        user_doc = add_user(user_id)
+
+        # Log if newly added
+        if user_doc["_new"]:
+            log_msg = f"👤 New user added:\nID: <code>{user_id}</code>\n"
+            if first_name:
+                log_msg += f"First Name: <b>{first_name}</b>\n"
+            if username:
+                log_msg += f"Username: @{username}\n"
+            await safe_api_call(
+                bot.send_message(LOG_CHANNEL_ID, log_msg, parse_mode=enums.ParseMode.HTML)
+            )
+        
+        # Check if user is blocked
+        if user_doc.get("blocked", True):
+            return
 
         # --- Token-based authorization ---
         if len(message.command) == 2 and message.command[1].startswith("token_"):
@@ -176,16 +193,14 @@ async def start_handler(client, message):
 
             keyboard = [buttons[i:i+2] for i in range(0, len(buttons), 2)]
 
-            # Add your fixed "Support" button at the start
-            keyboard.insert(0, [InlineKeyboardButton("Support", url=SUPPORT)])
-            logger.info(f"Keyboard: {keyboard}")
-
             welcome_text = (
                 f"👋 🔰 Hello {user_link}! 🔰\n\n"
                 f"I'm an Auto Filter Bot 🤖 used to search documents\n\n"
                 f"🗓️ You joined: <code>{joined_str}</code>\n\n"
                 f"❤️ Enjoy your experience here! ❤️"
             )
+            logger.info(f"Keyboard: {keyboard}")
+
             reply_msg = await safe_api_call(message.reply_text(
                 welcome_text,
                 reply_markup=InlineKeyboardMarkup(keyboard),

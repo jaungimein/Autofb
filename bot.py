@@ -104,21 +104,23 @@ async def start_handler(client, message):
         user_link = await get_user_link(message.from_user) 
         first_name = message.from_user.first_name or None
         username = message.from_user.username or None
-        # Add user and log if newly added
-        added = add_user(user_id)
-        if added:
+        # Add user (or fetch existing)
+        user_doc = add_user(user_id)
+
+        # Log if newly added
+        if user_doc["_new"]:
             log_msg = f"👤 New user added:\nID: <code>{user_id}</code>\n"
             if first_name:
                 log_msg += f"First Name: <b>{first_name}</b>\n"
             if username:
                 log_msg += f"Username: @{username}\n"
-            await safe_api_call(bot.send_message(LOG_CHANNEL_ID, log_msg, parse_mode=enums.ParseMode.HTML))
+            await safe_api_call(
+                bot.send_message(LOG_CHANNEL_ID, log_msg, parse_mode=enums.ParseMode.HTML)
+            )
 
         # Check if user is blocked
-        user_doc = users_col.find_one({"user_id": user_id})
-        if user_doc and user_doc.get("blocked", True):
+        if user_doc.get("blocked", True):
             return
-
 
         # --- Token-based authorization ---
         if len(message.command) == 2 and message.command[1].startswith("token_"):
@@ -751,31 +753,36 @@ async def generate_and_send_invite(client, callback_query: CallbackQuery):
     sends it to the user, and revokes it after auto_delete_message completes.
     """
     try:
-        channel_map = {
-            str(UPDATE_CHANNEL_ID): UPDATE_CHANNEL_ID,
-            str(UPDATE_CHANNEL2_ID): UPDATE_CHANNEL2_ID,
-            str(UPDATE_CHANNEL3_ID): UPDATE_CHANNEL3_ID,
-        }
+        # Build a map { "123456789": 123456789, ... }
+        channel_map = {str(chan_id): chan_id for chan_id in UPDATE_CHANNELS.values()}
+
         chan_id = callback_query.matches[0].group(1)
+
         if chan_id not in channel_map:
             await callback_query.answer("Invalid channel.", show_alert=True)
             return
+
         channel_id = channel_map[chan_id]
+
         invite = await client.create_chat_invite_link(
             channel_id, expire_date=None, member_limit=1, creates_join_request=True
         )
+
         reply = await callback_query.message.reply_text(
             f"🔗 Here is your invite link:\n{invite.invite_link}\n\nThis link will be revoked soon.",
             disable_web_page_preview=True
         )
         await callback_query.answer()
+
         async def cleanup():
             await delete_after_delay(reply)
             try:
                 await client.revoke_chat_invite_link(channel_id, invite.invite_link)
             except Exception:
                 pass
+
         bot.loop.create_task(cleanup())
+
     except Exception as e:
         logger.error(f"Failed generate_and_send_invite: {e}")
 

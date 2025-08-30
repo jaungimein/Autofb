@@ -150,15 +150,24 @@ async def get_allowed_channels():
 def add_user(user_id):
     """
     Add a user to users_col only if not already present.
-    Stores user_id and joined_date (UTC).
+    Stores user_id, joined_date (UTC), and blocked status.
+    Returns the user document with an extra key '_new' (True if newly added).
     """
-    if not users_col.find_one({"user_id": user_id}):
-        user_data = {
+    user_doc = users_col.find_one({"user_id": user_id})
+    
+    if not user_doc:
+        user_doc = {
             "user_id": user_id,
             "joined": datetime.now(timezone.utc),
             "blocked": False
         }
-        users_col.insert_one(user_data)
+        users_col.insert_one(user_doc)
+        user_doc["_new"] = True
+    else:
+        user_doc["_new"] = False
+    
+    return user_doc
+
 
 def authorize_user(user_id):
     """Authorize a user for 24 hours."""

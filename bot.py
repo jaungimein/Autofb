@@ -116,7 +116,7 @@ async def start_handler(client, message):
 
         # Check if user is blocked
         user_doc = users_col.find_one({"user_id": user_id})
-        if user_doc and user_doc.get("blocked", False):
+        if user_doc and user_doc.get("blocked", True):
             return
 
 

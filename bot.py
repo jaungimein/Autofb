@@ -744,7 +744,7 @@ async def send_file_callback(client, callback_query: CallbackQuery):
 async def noop_callback_handler(client, callback_query: CallbackQuery):
     await callback_query.answer()  # Instantly respond, does nothing
 
-@bot.on_callback_query(filters.regex(r"^gen_invite:(\d+)$"))
+@bot.on_callback_query(filters.regex(r"^gen_invite:(-?\d+)$"))
 async def generate_and_send_invite(client, callback_query: CallbackQuery):
     """
     Generates a custom invite link for the requested update channel,
@@ -753,7 +753,6 @@ async def generate_and_send_invite(client, callback_query: CallbackQuery):
     try:
 
         chan_id = int(callback_query.matches[0].group(1))
-        logger.info(f"Generating invite for channel {chan_id} requested by user {callback_query.from_user.id}")
 
         invite = await bot.create_chat_invite_link(
             chan_id, creates_join_request=True

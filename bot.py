@@ -178,6 +178,7 @@ async def start_handler(client, message):
 
             # Add your fixed "Support" button at the start
             keyboard.insert(0, [InlineKeyboardButton("Support", url=SUPPORT)])
+            logger.info(f"Keyboard: {keyboard}")
 
             welcome_text = (
                 f"👋 🔰 Hello {user_link}! 🔰\n\n"

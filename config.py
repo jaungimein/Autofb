@@ -17,7 +17,7 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger("sharing_bot")
-
+                
 # Suppress Pyrogram logs except for errors
 logging.getLogger("pyrogram").setLevel(logging.ERROR)
 
@@ -38,6 +38,20 @@ except:
     pass
 
 load_dotenv('config.env', override=True)
+
+def load_channels():
+    channels_raw = os.getenv("UPDATE_CHANNELS", "")
+    channels = {}
+    if channels_raw:
+        for pair in channels_raw.split(","):
+            try:
+                name, chan_id = pair.split(":")
+                channels[name.strip()] = int(chan_id.strip())
+            except ValueError:
+                logger.error(f"⚠️ Skipping invalid entry: {pair}")
+    return channels
+
+UPDATE_CHANNELS = load_channels()
 
 #TELEGRAM API
 API_ID = int(os.getenv('API_ID'))

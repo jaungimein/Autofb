@@ -184,17 +184,15 @@ async def start_handler(client, message):
             else:
                 joined_str = "Unknown"
 
-            # Generate invite links for the update channels (no expiry, require admin approval)
-            update_invite = await bot.create_chat_invite_link(
-                UPDATE_CHANNEL_ID, expire_date=None, member_limit=0, creates_join_request=True
-            )
-            update2_invite = await bot.create_chat_invite_link(
-                UPDATE_CHANNEL2_ID, expire_date=None, member_limit=0, creates_join_request=True
-            )
-            # Add a duplicate for UPDATE_CHANNEL_ID as requested
-            update_invite2 = await bot.create_chat_invite_link(
-                UPDATE_CHANNEL_ID, expire_date=None, member_limit=0, creates_join_request=True
-            )
+            buttons = [
+                InlineKeyboardButton(name, callback_data=f"gen_invite:{chan_id}")
+                for name, chan_id in UPDATE_CHANNELS.items()
+            ]
+
+            keyboard = [buttons[i:i+2] for i in range(0, len(buttons), 2)]
+
+            # Add your fixed "Support" button at the start
+            keyboard.insert(0, [InlineKeyboardButton("Support", url=SUPPORT)])
 
             welcome_text = (
                 f"👋 🔰 Hello {user_link}! 🔰\n\n"
@@ -204,21 +202,9 @@ async def start_handler(client, message):
             )
             reply_msg = await safe_api_call(message.reply_text(
                 welcome_text,
-                reply_markup=InlineKeyboardMarkup(
-                    [
-                        [
-                            InlineKeyboardButton("Support", url=SUPPORT),
-                            InlineKeyboardButton("Get Updates", callback_data=f"gen_invite:{UPDATE_CHANNEL_ID}")
-                        ],
-                        [
-                            InlineKeyboardButton("Get Updates", callback_data=f"gen_invite:{UPDATE_CHANNEL3_ID}"),
-                            InlineKeyboardButton("Get Updates", callback_data=f"gen_invite:{UPDATE_CHANNEL2_ID}")
-                        ]
-                    ]
-                ),
+                reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode=enums.ParseMode.HTML
             ))
-
     except Exception as e:
         logger.error(f"⚠️ An unexpected error occurred: {e}")
 

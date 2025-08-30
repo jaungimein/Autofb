@@ -193,6 +193,7 @@ async def start_handler(client, message):
 
             # Add your fixed "Support" button at the start
             keyboard.insert(0, [InlineKeyboardButton("Support", url=SUPPORT)])
+            keyboard.insert(1, [InlineKeyboardButton("Backup", url=UPDATE_CHANNEL_LINK)])
 
             welcome_text = (
                 f"👋 🔰 Hello {user_link}! 🔰\n\n"

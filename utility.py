@@ -455,7 +455,7 @@ async def file_queue_worker(bot):
                     audio_path = await bot.download_media(message)
                     thumb_path = await get_audio_thumbnail(audio_path)
                     file_info = f"🎧 <b>Title:</b> {message.audio.title}\n🧑‍🎤 <b>Artist:</b> {message.audio.performer}"
-                    await bot.send_photo(UPDATE_CHANNEL3_ID, photo=thumb_path, caption=file_info)
+                    await bot.send_photo(UPDATE_CHANNEL_ID2, photo=thumb_path, caption=file_info)
                     os.remove(audio_path)
                     os.remove(thumb_path)
                 try:

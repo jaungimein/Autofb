@@ -754,11 +754,11 @@ async def generate_and_send_invite(client, callback_query: CallbackQuery):
 
         chan_id = int(callback_query.matches[0].group(1))
 
-        invite = await client.create_chat_invite_link(
-            chan_id, expire_date=None, member_limit=1, creates_join_request=True
+        invite = await bot.create_chat_invite_link(
+            chan_id, creates_join_request=True
         )
 
-        reply = await callback_query.message.reply_text(
+        reply = await callback_query.edit_message_text(
             f"🔗 Here is your invite link:\n{invite.invite_link}\n\nThis link will be revoked soon.",
             disable_web_page_preview=True
         )
@@ -767,7 +767,7 @@ async def generate_and_send_invite(client, callback_query: CallbackQuery):
         async def cleanup():
             await delete_after_delay(reply)
             try:
-                await client.revoke_chat_invite_link(chan_id, invite.invite_link)
+                await bot.revoke_chat_invite_link(chan_id, invite.invite_link)
             except Exception:
                 pass
 

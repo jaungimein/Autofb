@@ -117,9 +117,11 @@ async def start_handler(client, message):
             await safe_api_call(
                 bot.send_message(LOG_CHANNEL_ID, log_msg, parse_mode=enums.ParseMode.HTML)
             )
+            
+        logger.info(f"Blocked check for {user_id}: {user_doc.get('blocked')}")
 
         # Check if user is blocked
-        if user_doc.get("blocked", False):
+        if user_doc.get("blocked", True):
             return
 
         # --- Token-based authorization ---

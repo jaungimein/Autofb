@@ -186,14 +186,12 @@ async def start_handler(client, message):
             else:
                 joined_str = "Unknown"
 
-            buttons = []
-            buttons.append([InlineKeyboardButton("Updates Channel", url=UPDATE_CHANNEL_LINK)])
-            channel_buttons = [
-                InlineKeyboardButton(name, callback_data=f"gen_invite:{chan_id}")
-                for name, chan_id in UPDATE_CHANNELS.items()
-            ]
-            buttons.append(channel_buttons)
-            keyboard = buttons
+            buttons = [InlineKeyboardButton("Updates Channel", url=UPDATE_CHANNEL_LINK)] + [
+                    InlineKeyboardButton(name, callback_data=f"gen_invite:{chan_id}")
+                        for name, chan_id in UPDATE_CHANNELS.items()
+                        ]
+            
+            keyboard = [buttons[i:i+2] for i in range(0, len(buttons), 2)]
 
             welcome_text = (
                 f"👋 🔰 Hello {user_link}! 🔰\n\n"

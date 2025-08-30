@@ -199,7 +199,6 @@ async def start_handler(client, message):
                 f"🗓️ You joined: <code>{joined_str}</code>\n\n"
                 f"❤️ Enjoy your experience here! ❤️"
             )
-            logger.info(f"Keyboard: {keyboard}")
 
             reply_msg = await safe_api_call(message.reply_text(
                 welcome_text,

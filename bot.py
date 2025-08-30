@@ -751,19 +751,11 @@ async def generate_and_send_invite(client, callback_query: CallbackQuery):
     sends it to the user, and revokes it after auto_delete_message completes.
     """
     try:
-        # Build a map { "123456789": 123456789, ... }
-        channel_map = {str(chan_id): chan_id for chan_id in UPDATE_CHANNELS.values()}
 
-        chan_id = callback_query.matches[0].group(1)
-
-        if chan_id not in channel_map:
-            await callback_query.answer("Invalid channel.", show_alert=True)
-            return
-
-        channel_id = channel_map[chan_id]
+        chan_id = int(callback_query.matches[0].group(1))
 
         invite = await client.create_chat_invite_link(
-            channel_id, expire_date=None, member_limit=1, creates_join_request=True
+            chan_id, expire_date=None, member_limit=1, creates_join_request=True
         )
 
         reply = await callback_query.message.reply_text(
@@ -775,7 +767,7 @@ async def generate_and_send_invite(client, callback_query: CallbackQuery):
         async def cleanup():
             await delete_after_delay(reply)
             try:
-                await client.revoke_chat_invite_link(channel_id, invite.invite_link)
+                await client.revoke_chat_invite_link(chan_id, invite.invite_link)
             except Exception:
                 pass
 

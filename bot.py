@@ -119,7 +119,7 @@ async def start_handler(client, message):
             )
 
         # Check if user is blocked
-        if user_doc.get("blocked", True):
+        if user_doc.get("blocked", False):
             return
 
         # --- Token-based authorization ---

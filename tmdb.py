@@ -54,7 +54,7 @@ def format_tmdb_info(tmdb_type, movie_id, data):
         else:
             rating_str = None
 
-        message = f"<b>🎬 Title:</b> {title}\n"
+        message = f"<b>🎬 Title:</b>  <code>{title}</code>\n"
         message += f"<b>📆 Release:</b> {release_year}\n" if release_year else ""
         message += f"<b>⭐ Rating:</b> {rating_str} / 10\n" if rating_str else ""
         message += f"<b>🎯 Type:</b>  <code>Movie {data.get('id')}</code>\n"
@@ -87,7 +87,7 @@ def format_tmdb_info(tmdb_type, movie_id, data):
         else:
             rating_str = None
 
-        message = f"<b>📺 Title:</b> {title}\n"
+        message = f"<b>📺 Title:</b>  <code>{title}</code>\n"
         message += f"<b>📅 Release Year:</b> {release_year}\n" if release_year else ""
         message += f"<b>⭐ Rating:</b> {rating_str} / 10\n" if rating_str else ""
         message += f"<b>🎯 Type:</b>  <code>Tv {data.get('id')}</code>\n"
@@ -127,7 +127,16 @@ async def get_by_id(tmdb_type, tmdb_id):
                     poster_path = images['posters'][0]['file_path']
                 poster_url = f"https://image.tmdb.org/t/p/original{poster_path}" if poster_path else None
 
-                return {"message": message, "poster_url": poster_url}
+                video_url = f'https://api.themoviedb.org/3/{tmdb_type}/{tmdb_id}/videos?api_key={TMDB_API_KEY}'
+                async with session.get(video_url) as video_response:
+                    video_data = await video_response.json()
+                    trailer_url = None
+                    for video in video_data.get('results', []):
+                        if video['site'] == 'YouTube' and video['type'] == 'Trailer':
+                            trailer_url = f"https://www.youtube.com/watch?v={video['key']}"
+                            break
+
+                return {"message": message, "poster_url": poster_url, "trailer_url": trailer_url}
     except aiohttp.ClientError as e:
         print(f"Error fetching TMDB data: {e}")
     return {"message": f"Error: {str(e)}", "poster_url": None}

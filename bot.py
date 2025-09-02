@@ -223,21 +223,29 @@ async def channel_file_handler(client, message):
 
 @bot.on_message(filters.private & (filters.document | filters.video | filters.audio | filters.photo) & filters.user(OWNER_ID))
 async def del_file_handler(client, message):
-    reply = None
-    channel_id = message.forward_from_chat.id if message.forward_from_chat else None
-    msg_id = message.forward_from_message_id if message.forward_from_message_id else None
-    if channel_id and msg_id:
-        file_doc = files_col.find_one({"channel_id": channel_id, "message_id": msg_id})
-        if not file_doc:
-            reply = await message.reply_text("No file found with that name in the database.")
+    try:
+        if message.photo:
+            await message.copy(UPDATE_CHANNEL_ID)
+            await message.delete()
             return
-        result = files_col.delete_one({"channel_id": channel_id, "message_id": msg_id})
-        if result.deleted_count > 0:
-            reply = await message.reply_text(f"Database record deleted. File name: {file_doc['file_name']}")
-    else:
-        reply = await message.reply_text("Please forward a file from a channel to delete its record.")
-    if reply:
-        bot.loop.create_task(auto_delete_message(message, reply))
+        
+        reply = None
+        channel_id = message.forward_from_chat.id if message.forward_from_chat else None
+        msg_id = message.forward_from_message_id if message.forward_from_message_id else None
+        if channel_id and msg_id:
+            file_doc = files_col.find_one({"channel_id": channel_id, "message_id": msg_id})
+            if not file_doc:
+                reply = await message.reply_text("No file found with that name in the database.")
+                return
+            result = files_col.delete_one({"channel_id": channel_id, "message_id": msg_id})
+            if result.deleted_count > 0:
+                reply = await message.reply_text(f"Database record deleted. File name: {file_doc['file_name']}")
+        else:
+            reply = await message.reply_text("Please forward a file from a channel to delete its record.")
+        if reply:
+            bot.loop.create_task(auto_delete_message(message, reply))
+    except Exception as e:
+        await logger.error(f"Error: {e}")
 
 @bot.on_message(filters.command("index") & filters.private & filters.user(OWNER_ID))
 async def index_channel_files(client, message):
@@ -561,6 +569,7 @@ async def tmdb_command(client, message):
         tmdb_type, tmdb_id = await extract_tmdb_link(tmdb_link)
         result = await get_by_id(tmdb_type, tmdb_id)
         poster_url = result.get('poster_url')
+        trailer = result.get('trailer_url')
         info = result.get('message')
 
         update = {
@@ -573,12 +582,15 @@ async def tmdb_command(client, message):
         )
         
         if poster_url:
+            keyboard = InlineKeyboardMarkup(
+                [[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
             await safe_api_call(
                 client.send_photo(
                     UPDATE_CHANNEL_ID,
                     photo=poster_url,
                     caption=info,
-                    parse_mode=enums.ParseMode.HTML
+                    parse_mode=enums.ParseMode.HTML,
+                    reply_markup=keyboard
                 )
             )
     except Exception as e:
@@ -748,7 +760,7 @@ async def send_file_callback(client, callback_query: CallbackQuery):
 
         send_file = await safe_api_call(client.copy_message(
             chat_id=user_id,
-            caption=f'<pre>{file_doc["file_name"]}</pre>',
+            caption=f'<b>{file_doc["file_name"]}</b>',
             from_chat_id=file_doc["channel_id"],
             message_id=file_doc["message_id"]
         ))

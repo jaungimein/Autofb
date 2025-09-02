@@ -324,14 +324,18 @@ async def restore_tmdb_photos(bot, start_id=None):
         try:
             results = await get_by_id(tmdb_type, tmdb_id)
             poster_url = results.get('poster_url')
+            trailer = results.get('trailer_url')
             info = results.get('message')
             if poster_url:
+                keyboard = InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
                 await safe_api_call(
                     bot.send_photo(
                         UPDATE_CHANNEL_ID,
                         photo=poster_url,
                         caption=info,
-                        parse_mode=enums.ParseMode.HTML
+                        parse_mode=enums.ParseMode.HTML,
+                        reply_markup=keyboard
                     )
                 )
         except Exception as e:
@@ -484,14 +488,18 @@ async def file_queue_worker(bot):
                         if not exists:
                             results = await get_by_id(tmdb_type, tmdb_id)
                             poster_url = results.get('poster_url')
+                            trailer = results.get('trailer_url')
                             info = results.get('message')
                             if poster_url:
+                                keyboard = InlineKeyboardMarkup(
+                                    [[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
                                 await safe_api_call(
                                     bot.send_photo(
                                          UPDATE_CHANNEL_ID,
                                          photo=poster_url,
                                          caption=info,
-                                         parse_mode=enums.ParseMode.HTML
+                                         parse_mode=enums.ParseMode.HTML,
+                                         reply_markup=keyboard
                                     )
                                 )                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                 upsert_tmdb_info(tmdb_id, tmdb_type)

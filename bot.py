@@ -221,6 +221,25 @@ async def channel_file_handler(client, message):
     await file_queue.join()
     invalidate_search_cache()
 
+@bot.on_message(filters.private & (filters.document | filters.video | filters.audio | filters.photo) & filters.user(OWNER_ID))
+async def del_file_handler(client, message):
+    reply = None
+    media = message.document or message.video or message.audio or message.photo
+    file_name = message.caption if message.caption else media.file_name 
+    file_doc = files_col.find_one({"file_name": file_name})
+    if not file_doc:
+        reply = await message.reply_text("No file found with that link in the database.")
+        return
+    result = files_col.delete_one({"file_name": file_name})
+    if result.deleted_count > 0:
+        reply = await message.reply_text(f"Database record deleted. File name: {file_name})")
+    else:
+        reply = await message.reply_text(f"No file found with File name: {file_name}")
+    if reply:
+        bot.loop.create_task(auto_delete_message(message, reply))
+
+
+
 @bot.on_message(filters.command("index") & filters.private & filters.user(OWNER_ID))
 async def index_channel_files(client, message):
     """
@@ -332,27 +351,28 @@ async def delete_command(client, message):
             except Exception as e:
                 await message.reply_text(f"Error: {e}")
                 return
-            # Single file delete
-            file_doc = files_col.find_one({"channel_id": channel_id, "message_id": msg_id})
-            if not file_doc:
-                reply = await message.reply_text("No file found with that link in the database.")
-                return
-            result = files_col.delete_one({"channel_id": channel_id, "message_id": msg_id})
-            if result.deleted_count > 0:
-                reply = await message.reply_text(f"Database record deleted. File name: {file_doc.get('file_name')}\n({user_input})")
-            else:
-                reply = await message.reply_text(f"No file found with File name: {file_doc.get('file_name')}")
         elif delete_type == "tmdb":
             try:
-                tmdb_type, tmdb_id = await extract_tmdb_link(user_input)
+                # Case: /del tmdb movie 12345
+                if end_input:
+                    tmdb_type = user_input.lower()
+                    tmdb_id = end_input.strip()
+                else:
+                    # Case: /del tmdb <tmdb_link>
+                    tmdb_type, tmdb_id = await extract_tmdb_link(user_input)
+
+                result = tmdb_col.delete_one({
+                    "tmdb_type": tmdb_type,
+                    "tmdb_id": tmdb_id
+                })
+
+                if result.deleted_count > 0:
+                    reply = await message.reply_text(f"Database record deleted: {tmdb_type}/{tmdb_id}.")
+                else:
+                    reply = await message.reply_text(f"No TMDB record found with ID {tmdb_type}/{tmdb_id} in the database.")
             except Exception as e:
                 reply = await message.reply_text(f"Error: {e}")
-                return
-            result = tmdb_col.delete_one({"tmdb_type": tmdb_type, "tmdb_id": tmdb_id})
-            if result.deleted_count > 0:
-                reply = await message.reply_text(f"Database record deleted {tmdb_type}/{tmdb_id}.")
-            else:
-                reply = await message.reply_text(f"No TMDB record found with ID {tmdb_type}/{tmdb_id} in the database.")
+
         else:
             reply = await message.reply_text("Invalid delete type. Use 'file' or 'tmdb'.")
         if reply:
@@ -729,6 +749,7 @@ async def send_file_callback(client, callback_query: CallbackQuery):
 
         send_file = await safe_api_call(client.copy_message(
             chat_id=user_id,
+            caption=f"<b>{file_doc.get("file_name")}</b>",
             from_chat_id=file_doc["channel_id"],
             message_id=file_doc["message_id"]
         ))

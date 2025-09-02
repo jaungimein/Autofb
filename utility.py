@@ -377,8 +377,8 @@ def human_readable_size(size):
 
 def remove_extension(caption):
     try:
-        # Remove .mkv and .mp4 extensions if present
-        cleaned_caption = re.sub(r'\.mkv|\.mp4|\.webm', '', caption)
+        # Remove the extension and everything after it
+        cleaned_caption = re.sub(r'\.(mkv|mp4|webm).*$', '', caption, flags=re.IGNORECASE)
         return cleaned_caption
     except Exception as e:
         logger.error(e)

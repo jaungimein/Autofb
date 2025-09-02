@@ -749,7 +749,7 @@ async def send_file_callback(client, callback_query: CallbackQuery):
 
         send_file = await safe_api_call(client.copy_message(
             chat_id=user_id,
-            caption=f"<b>{file_doc["file_name"]}</b>",
+            caption=f'<b>{file_doc["file_name"]}</b>',
             from_chat_id=file_doc["channel_id"],
             message_id=file_doc["message_id"]
         ))

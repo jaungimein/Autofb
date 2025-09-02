@@ -233,7 +233,7 @@ async def del_file_handler(client, message):
             return
         result = files_col.delete_one({"channel_id": channel_id, "message_id": msg_id})
         if result.deleted_count > 0:
-            reply = await message.reply_text(f'Database record deleted. File name: "{file_doc['file_name']}")')
+            reply = await message.reply_text(f"Database record deleted. File name: {file_doc['file_name']})")
     else:
         reply = await message.reply_text("Please forward a file from a channel to delete its record.")
     if reply:

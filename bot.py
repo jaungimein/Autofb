@@ -224,7 +224,7 @@ async def channel_file_handler(client, message):
 @bot.on_message(filters.private & (filters.document | filters.video | filters.audio | filters.photo) & filters.user(OWNER_ID))
 async def del_file_handler(client, message):
     reply = None
-    channel_id = message.forwarded_from_chat.id if message.forward_from_chat else None
+    channel_id = message.forward_from_chat.id if message.forward_from_chat else None
     msg_id = message.forward_from_message_id if message.forward_from_message_id else None
     if channel_id and msg_id:
         file_doc = files_col.find_one({"channel_id": channel_id, "message_id": msg_id})

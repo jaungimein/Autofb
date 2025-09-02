@@ -224,21 +224,20 @@ async def channel_file_handler(client, message):
 @bot.on_message(filters.private & (filters.document | filters.video | filters.audio | filters.photo) & filters.user(OWNER_ID))
 async def del_file_handler(client, message):
     reply = None
-    media = message.document or message.video or message.audio or message.photo
-    file_name = message.caption if message.caption else media.file_name 
-    file_doc = files_col.find_one({"file_name": file_name})
-    if not file_doc:
-        reply = await message.reply_text("No file found with that link in the database.")
-        return
-    result = files_col.delete_one({"file_name": file_name})
-    if result.deleted_count > 0:
-        reply = await message.reply_text(f"Database record deleted. File name: {file_name})")
+    channel_id = message.forwarded_from_chat.id if message.forward_from_chat else None
+    msg_id = message.forward_from_message_id if message.forward_from_message_id else None
+    if channel_id and msg_id:
+        file_doc = files_col.find_one({"channel_id": channel_id, "message_id": msg_id})
+        if not file_doc:
+            reply = await message.reply_text("No file found with that name in the database.")
+            return
+        result = files_col.delete_one({"channel_id": channel_id, "message_id": msg_id})
+        if result.deleted_count > 0:
+            reply = await message.reply_text(f'Database record deleted. File name: "{file_doc['file_name']}")')
     else:
-        reply = await message.reply_text(f"No file found with File name: {file_name}")
+        reply = await message.reply_text("Please forward a file from a channel to delete its record.")
     if reply:
         bot.loop.create_task(auto_delete_message(message, reply))
-
-
 
 @bot.on_message(filters.command("index") & filters.private & filters.user(OWNER_ID))
 async def index_channel_files(client, message):

@@ -43,7 +43,7 @@ def format_tmdb_info(tmdb_type, movie_id, data):
         title = data.get('title')
         genre = extract_genres(data)
         genre_tags = " ".join([genre_tag_with_emoji(g) for g in genre])
-        release_year = data.get('release_date', '')[:4] if data.get('release_date') else ""
+        release_date = data.get('release_date', '') if data.get('release_date') else ""
         director = cast_crew.get('director')
         starring = ", ".join(cast_crew.get('starring', [])) if cast_crew.get('starring') else None
         spoken_languages = ", ".join([lang.get('name', '') for lang in data.get('spoken_languages', [])])
@@ -54,10 +54,9 @@ def format_tmdb_info(tmdb_type, movie_id, data):
         else:
             rating_str = None
 
-        message = f"<b>🎬 Title:</b>  <code>{title}</code>\n"
-        message += f"<b>📆 Release:</b> {release_year}\n" if release_year else ""
+        message = f"<b>🎬 Title:</b> {title}\n"
+        message += f"<b>📆 Release Date:</b> {release_date}\n" if release_date else ""
         message += f"<b>⭐ Rating:</b> {rating_str} / 10\n" if rating_str else ""
-        message += f"<b>🎯 Type:</b>  <code>Movie {data.get('id')}</code>\n"
         message += f"<b>⏳️ Duration:</b> {runtime}\n" if runtime else ""
         message += f"<b>🅰️ Languages:</b> {spoken_languages}\n" if spoken_languages else ""
         message += f"<b>🔞 Adult:</b> Yes\n" if data.get('adult') else ""
@@ -77,7 +76,7 @@ def format_tmdb_info(tmdb_type, movie_id, data):
         title = data.get('name')
         genre = extract_genres(data)
         genre_tags = " ".join([genre_tag_with_emoji(g) for g in genre])
-        release_year = data.get('first_air_date', '')[:4] if data.get('first_air_date') else ""
+        release_date = data.get('first_air_date', '') if data.get('first_air_date') else ""
         director = ", ".join([creator['name'] for creator in data.get('created_by', [])]) if data.get('created_by') else cast_crew.get('director')
         starring = ", ".join(cast_crew.get('starring', [])) if cast_crew.get('starring') else None
         spoken_languages = ", ".join([lang.get('name', '') for lang in data.get('spoken_languages', [])])
@@ -87,10 +86,11 @@ def format_tmdb_info(tmdb_type, movie_id, data):
         else:
             rating_str = None
 
-        message = f"<b>📺 Title:</b>  <code>{title}</code>\n"
-        message += f"<b>📅 Release Year:</b> {release_year}\n" if release_year else ""
+        message = f"<b>📺 Title:</b> {title}\n"
+        message += f"<b>📅 Release Date:</b> {release_date}\n" if release_date else ""
+        message += f"<b>📺 Seasons:</b> {data.get('number_of_seasons', '')}\n" if data.get('number_of_seasons') else ""
+        message += f"<b>📺 Episodes:</b> {data.get('number_of_episodes', '')}\n" if data.get('number_of_episodes') else ""
         message += f"<b>⭐ Rating:</b> {rating_str} / 10\n" if rating_str else ""
-        message += f"<b>🎯 Type:</b>  <code>Tv {data.get('id')}</code>\n"
         message += f"<b>🅰️ Languages:</b> {spoken_languages}\n" if spoken_languages else ""
         message += f"<b>🔞 Adult:</b> Yes\n" if data.get('adult') else ""
         message += f"<b>⚙️ Genre:</b> {genre_tags}\n" if genre_tags else ""

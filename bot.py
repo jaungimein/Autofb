@@ -596,7 +596,7 @@ async def tmdb_command(client, message):
 # Handles incoming text messages in private chat that aren't commands
 @bot.on_message(filters.private & filters.text & ~filters.command([
     "start", "stats", "add", "rm", "broadcast", "log", "tmdb", 
-    "restore", "index", "del", "restart", "chatop"]))
+    "restore", "index", "del", "restart", "chatop", "block"]))
 async def instant_search_handler(client, message):
     reply = None
     reply = await message.reply_text("Searching please wait ...")

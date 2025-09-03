@@ -599,13 +599,42 @@ async def tmdb_command(client, message):
     "restore", "index", "del", "restart", "chatop", "block"]))
 async def instant_search_handler(client, message):
     reply = None
-    reply = await message.reply_text("Searching please wait ...")
-    try: 
+    user_id = message.from_user.id
+    try:   
         query = sanitize_query(message.text)
         query_id = store_query(query)
+
         if not query:
             return
         
+        user_doc = add_user(user_id) 
+        # Check if user is blocked
+        if user_doc.get("blocked", True):
+            return
+        
+        if not is_user_authorized(user_id):
+            now = datetime.now(timezone.utc)
+            token_doc = tokens_col.find_one({
+                "user_id": user_id,
+                "expiry": {"$gt": now}
+            })
+            token_id = token_doc["token_id"] if token_doc else generate_token(user_id)
+            short_link = shorten_url(get_token_link(token_id, BOT_USERNAME))
+            reply = await safe_api_call(message.reply_text(
+                text=(
+                    "🎉 Just one step away!\n\n"
+                    "To access files, please contribute a little by clicking the link below. "
+                    "It’s completely free for you — and it helps keep the bot running by supporting the server costs. ❤️\n\n"
+                    "Click below to get 24-hour access:"
+                ),
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("🔓 Get Access Link", url=short_link)]]
+                )
+            ))
+            return
+        
+        reply = await message.reply_text("Searching please wait ...")
+
         channels = list(allowed_channels_col.find({}, {"_id": 0, "channel_id": 1, "channel_name": 1}))
         if not channels:
             reply = await safe_api_call(message.reply_text(f"No allowed channels available for search."))
@@ -641,33 +670,7 @@ async def instant_search_handler(client, message):
 
 # Callback handler when user selects a channel to search in
 @bot.on_callback_query(filters.regex(r"^search_channel:(.+):(-?\d+):(\d+)$"))
-async def channel_search_callback_handler(client, callback_query: CallbackQuery):
-
-    user_id = callback_query.from_user.id
-
-    if not is_user_authorized(user_id):
-        now = datetime.now(timezone.utc)
-        token_doc = tokens_col.find_one({
-            "user_id": user_id,
-            "expiry": {"$gt": now}
-        })
-        token_id = token_doc["token_id"] if token_doc else generate_token(user_id)
-        short_link = shorten_url(get_token_link(token_id, BOT_USERNAME))
-        await safe_api_call(callback_query.edit_message_text(
-            text=(
-                "🎉 Just one step away!\n\n"
-                "To access files, please contribute a little by clicking the link below. "
-                "It’s completely free for you — and it helps keep the bot running by supporting the server costs. ❤️\n\n"
-                "Click below to get 24-hour access:"
-            ),
-            reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("🔓 Get Access Link", url=short_link)]]
-            )
-        ))
-
-        await callback_query.answer()
-        return
-    
+async def channel_search_callback_handler(client, callback_query: CallbackQuery):    
     query_id = callback_query.matches[0].group(1)
     query = get_query_by_id(query_id)
     channel_id = int(callback_query.matches[0].group(2))

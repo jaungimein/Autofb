@@ -465,7 +465,7 @@ async def remove_channel_handler(client, message: Message):
     except Exception as e:
         await message.reply_text(f"Error: {e}")
 
-@bot.on_message(filters.command("broadcast") & filters.private & filters.user(OWNER_ID))
+@bot.on_message(filters.command("broadcast") & filters.chat(UPDATE_CHANNEL_ID) & filters.chat(LOG_CHANNEL_ID))
 async def broadcast_handler(client, message: Message):
     """
     Handles the /broadcast command for the owner.

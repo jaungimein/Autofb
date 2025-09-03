@@ -161,7 +161,9 @@ def add_user(user_id):
             "joined": datetime.now(timezone.utc),
             "blocked": False
         }
+
         users_col.insert_one(user_doc)
+
         user_doc["_new"] = True
     else:
         user_doc["_new"] = False

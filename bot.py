@@ -221,7 +221,7 @@ async def channel_file_handler(client, message):
     await file_queue.join()
     invalidate_search_cache()
 
-@bot.on_message(filters.private & (filters.document | filters.video | filters.audio | filters.photo) & filters.user(OWNER_ID))
+@bot.on_message(filters.private & (filters.document | filters.video | filters.audio) & filters.user(OWNER_ID))
 async def del_file_handler(client, message):
     try:
         reply = None

@@ -211,7 +211,7 @@ async def start_handler(client, message):
     if reply_msg:
         bot.loop.create_task(auto_delete_message(message, reply_msg))
 
-@bot.on_message(filters.channel & filters.incoming & (filters.document | filters.video | filters.audio | filters.photo))
+@bot.on_message(filters.channel & (filters.document | filters.video | filters.audio | filters.photo))
 async def channel_file_handler(client, message):
     allowed_channels = await get_allowed_channels()
     if message.chat.id not in allowed_channels:
@@ -224,11 +224,6 @@ async def channel_file_handler(client, message):
 @bot.on_message(filters.private & (filters.document | filters.video | filters.audio | filters.photo) & filters.user(OWNER_ID))
 async def del_file_handler(client, message):
     try:
-        if message.photo:
-            await message.copy(UPDATE_CHANNEL_ID)
-            await message.delete()
-            return
-        
         reply = None
         channel_id = message.forward_from_chat.id if message.forward_from_chat else None
         msg_id = message.forward_from_message_id if message.forward_from_message_id else None
@@ -465,7 +460,7 @@ async def remove_channel_handler(client, message: Message):
     except Exception as e:
         await message.reply_text(f"Error: {e}")
 
-@bot.on_message(filters.command("broadcast") & filters.chat(UPDATE_CHANNEL_ID) & filters.chat(LOG_CHANNEL_ID))
+@bot.on_message(filters.command("broadcast") & filters.private & filters.user(OWNER_ID))
 async def broadcast_handler(client, message: Message):
     """
     Handles the /broadcast command for the owner.

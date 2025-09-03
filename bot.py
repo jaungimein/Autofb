@@ -596,7 +596,7 @@ async def tmdb_command(client, message):
 # Handles incoming text messages in private chat that aren't commands
 @bot.on_message(filters.private & filters.text & ~filters.command([
     "start", "stats", "add", "rm", "broadcast", "log", "tmdb", 
-    "restore", "index", "del", "restart", "chatop", "block"]))
+    "restore", "index", "del", "restart", "chatop", "block", "user"]))
 async def instant_search_handler(client, message):
     reply = None
     reply = await message.reply_text("Searching please wait ...")
@@ -857,6 +857,19 @@ async def block_user_handler(client, message: Message):
         await message.reply_text(f"✅ User {user_id} has been blocked.")
     except Exception as e:
         await message.reply_text(f"❌ Failed to block user: {e}")
+
+@bot.on_message(filters.command("user") & filters.private & filters.user(OWNER_ID))
+async def get_user_link(client, message: Message):
+    """
+    Returns a formatted user link for the given user.
+    """
+    try:
+        user_id = message.command[1] if len(message.command) > 1 else None
+        user_link = await get_user_link(user_id)
+        await message.reply_text(f"User link: {user_link}")
+    except Exception as e:
+        await message.reply_text(f"Error: {e}")
+
 '''
 @bot.on_chat_join_request()
 async def approve_join_request_handler(client, join_request):

@@ -465,7 +465,8 @@ async def file_queue_worker(bot):
                                 parse_mode=enums.ParseMode.HTML
                             )
                         )
-            else:
+                continue
+            else:   
                 upsert_file_info(file_info)
                 if message.audio:
                     audio_path = await bot.download_media(message)
@@ -474,42 +475,43 @@ async def file_queue_worker(bot):
                     await bot.send_photo(UPDATE_CHANNEL_ID2, photo=thumb_path, caption=file_info)
                     os.remove(audio_path)
                     os.remove(thumb_path)
-                try:
-                    if str(file_info["channel_id"]) in TMDB_CHANNEL_ID:
-                        title = remove_redandent(file_info["file_name"])
-                        parsed_data = PTN.parse(title)
-                        title = parsed_data.get("title", "").replace("_", " ").replace("-", " ").replace(":", " ")
-                        title = ' '.join(title.split())
-                        year = parsed_data.get("year")
-                        season = parsed_data.get("season")
-                        if season:
-                            result = await get_tv_by_name(title, year)
-                        else:
-                            result = await get_movie_by_name(title, year)
-                        tmdb_id, tmdb_type = result['id'], result['media_type']                        
-                        exists = tmdb_col.find_one({"tmdb_id": tmdb_id, "tmdb_type": tmdb_type})
-                        if not exists:
-                            results = await get_by_id(tmdb_type, tmdb_id)
-                            poster_url = results.get('poster_url')
-                            trailer = results.get('trailer_url')
-                            info = results.get('message')
-                            if poster_url:
-                                keyboard = InlineKeyboardMarkup(
-                                    [[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
-                                await safe_api_call(
-                                    bot.send_photo(
-                                         UPDATE_CHANNEL_ID,
-                                         photo=poster_url,
-                                         caption=info,
-                                         parse_mode=enums.ParseMode.HTML,
-                                         reply_markup=keyboard
-                                    )
-                                )                                                                                                                                                                                                                                                                                                                                                                                                                                                   
-                                upsert_tmdb_info(tmdb_id, tmdb_type)
 
-                except Exception as e:
-                    await safe_api_call(bot.send_message(LOG_CHANNEL_ID, f'Error processing TMDB info:{e} <code>{title}</code> {file_info["file_name"]}'))
+                if duplicate:
+                    try:
+                        if str(file_info["channel_id"]) in TMDB_CHANNEL_ID:
+                            title = remove_redandent(file_info["file_name"])
+                            parsed_data = PTN.parse(title)
+                            title = parsed_data.get("title", "").replace("_", " ").replace("-", " ").replace(":", " ")
+                            title = ' '.join(title.split())
+                            year = parsed_data.get("year")
+                            season = parsed_data.get("season")
+                            if season:
+                                result = await get_tv_by_name(title, year)
+                            else:
+                                result = await get_movie_by_name(title, year)
+                            tmdb_id, tmdb_type = result['id'], result['media_type']                        
+                            exists = tmdb_col.find_one({"tmdb_id": tmdb_id, "tmdb_type": tmdb_type})
+                            if not exists:
+                                results = await get_by_id(tmdb_type, tmdb_id)
+                                poster_url = results.get('poster_url')
+                                trailer = results.get('trailer_url')
+                                info = results.get('message')
+                                if poster_url:
+                                    keyboard = InlineKeyboardMarkup(
+                                        [[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
+                                    await safe_api_call(
+                                        bot.send_photo(
+                                            UPDATE_CHANNEL_ID,
+                                            photo=poster_url,
+                                            caption=info,
+                                            parse_mode=enums.ParseMode.HTML,
+                                            reply_markup=keyboard
+                                        )
+                                    )                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+                                    upsert_tmdb_info(tmdb_id, tmdb_type)
 
+                    except Exception as e:
+                        await safe_api_call(bot.send_message(LOG_CHANNEL_ID, f'Error processing TMDB info:{e} <code>{title}</code> {file_info["file_name"]}'))
         except Exception as e:
             logger.error(f"❌ Error saving file: {e}")
         finally:

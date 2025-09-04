@@ -631,6 +631,7 @@ async def instant_search_handler(client, message):
                     [[InlineKeyboardButton("🔓 Get Access Link", url=short_link)]]
                 )
             ))
+            bot.loop.create_task(auto_delete_message(message, reply))
             return
         
         reply = await message.reply_text("Searching please wait ...")

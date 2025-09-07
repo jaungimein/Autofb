@@ -18,7 +18,7 @@ from db import (
     tmdb_col
 )
 from config import *
-from tmdb import get_movie_by_name, get_tv_by_name, get_by_id
+from tmdb import get_movie_id, get_tv_id, get_info
 from mutagen.mp3 import MP3
 from mutagen.flac import FLAC
 from mutagen.mp4 import MP4
@@ -325,7 +325,7 @@ async def restore_tmdb_photos(bot, start_id=None):
         tmdb_id = doc.get("tmdb_id")
         tmdb_type = doc.get("tmdb_type")
         try:
-            results = await get_by_id(tmdb_type, tmdb_id)
+            results = await get_info(tmdb_type, tmdb_id)
             poster_url = results.get('poster_url')
             trailer = results.get('trailer_url')
             info = results.get('message')
@@ -486,13 +486,13 @@ async def file_queue_worker(bot):
                             year = parsed_data.get("year")
                             season = parsed_data.get("season")
                             if season:
-                                result = await get_tv_by_name(title, year)
+                                result = await get_tv_id(title, year)
                             else:
-                                result = await get_movie_by_name(title, year)
+                                result = await get_movie_id(title, year)
                             tmdb_id, tmdb_type = result['id'], result['media_type']                        
                             exists = tmdb_col.find_one({"tmdb_id": tmdb_id, "tmdb_type": tmdb_type})
                             if not exists:
-                                results = await get_by_id(tmdb_type, tmdb_id)
+                                results = await get_info(tmdb_type, tmdb_id)
                                 poster_url = results.get('poster_url')
                                 trailer = results.get('trailer_url')
                                 info = results.get('message')

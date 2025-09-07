@@ -34,7 +34,7 @@ from db import (db, users_col,
                 )
 
 from fast_api import api
-from tmdb import get_by_id
+from tmdb import get_info
 import logging
 from pyrogram.types import CallbackQuery
 import base64
@@ -562,7 +562,7 @@ async def tmdb_command(client, message):
 
         tmdb_link = message.command[1]
         tmdb_type, tmdb_id = await extract_tmdb_link(tmdb_link)
-        result = await get_by_id(tmdb_type, tmdb_id)
+        result = await get_info(tmdb_type, tmdb_id)
         poster_url = result.get('poster_url')
         trailer = result.get('trailer_url')
         info = result.get('message')

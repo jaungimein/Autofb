@@ -110,7 +110,7 @@ def get_tv_imdb_id_sync(tv_id):
     data = resp.json()
     return data.get("imdb_id")
 
-async def get_by_id(tmdb_type, tmdb_id):
+async def get_info(tmdb_type, tmdb_id):
     api_url = f"https://api.themoviedb.org/3/{tmdb_type}/{tmdb_id}?api_key={TMDB_API_KEY}&language=en-US"
     image_url = f'https://api.themoviedb.org/3/{tmdb_type}/{tmdb_id}/images?api_key={TMDB_API_KEY}&language=en-US&include_image_language=en,hi'
     try:
@@ -156,7 +156,7 @@ def truncate_overview(overview):
         return overview[:MAX_OVERVIEW_LENGTH] + "..."
     return overview
 
-async def get_movie_by_name(movie_name, release_year=None):
+async def get_movie_id(movie_name, release_year=None):
     tmdb_search_url = f'https://api.themoviedb.org/3/search/movie?api_key={TMDB_API_KEY}&query={movie_name}'
     try:
         async with aiohttp.ClientSession() as session:
@@ -181,7 +181,7 @@ async def get_movie_by_name(movie_name, release_year=None):
         logger.error(f"Error fetching TMDb movie by name: {e}")
         return
 
-async def get_tv_by_name(tv_name, first_air_year=None):
+async def get_tv_id(tv_name, first_air_year=None):
     tmdb_search_url = f'https://api.themoviedb.org/3/search/tv?api_key={TMDB_API_KEY}&query={tv_name}'
     try:
         async with aiohttp.ClientSession() as session:

@@ -186,7 +186,7 @@ async def start_handler(client, message):
             else:
                 joined_str = "Unknown"
 
-            buttons = [InlineKeyboardButton("Bot Updates", url=UPDATE_CHANNEL_LINK)] + [
+            buttons = [InlineKeyboardButton("🤖 Updates", url=UPDATE_CHANNEL_LINK)] + [
                     InlineKeyboardButton(name, callback_data=f"gen_invite:{chan_id}")
                         for name, chan_id in UPDATE_CHANNELS.items()
                         ]

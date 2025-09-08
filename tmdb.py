@@ -19,8 +19,8 @@ def get_cast_and_crew(tmdb_type, movie_id):
     return {"starring": starring, "director": director}
 
 def get_imdb_details(imdb_id):
-    ia = Cinemagoer()
     try:
+        ia = Cinemagoer()
         movie = ia.get_movie(imdb_id.replace('tt', ''))
         if not movie:
             return {}

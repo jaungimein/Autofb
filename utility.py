@@ -511,7 +511,7 @@ async def file_queue_worker(bot):
                                     upsert_tmdb_info(tmdb_id, tmdb_type)
 
                     except Exception as e:
-                        logger.error(f"Error: {e} {title}")
+                        logger.info(f"TMDB Info not found: {title}")
         except Exception as e:
             logger.error(f"❌ Error saving file: {e}")
         finally:

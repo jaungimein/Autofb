@@ -48,7 +48,7 @@ from query_helper import store_query, get_query_by_id, start_query_id_cleanup_th
 # ========================= 
 
 TOKEN_VALIDITY_SECONDS = 24 * 60 * 60  # 24 hours token validity
-MAX_FILES_PER_SESSION = 10             # Max files a user can access per session
+MAX_FILES_PER_SESSION = 100             # Max files a user can access per session
 PAGE_SIZE = 10  # Number of files per page
 SEARCH_PAGE_SIZE = 10  # You can adjust this
 
@@ -769,12 +769,19 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
         file_link = encode_file_link(f["channel_id"], f["message_id"])
         size_str = human_readable_size(f.get('file_size', 0))
         btn_text = f"{size_str} 🔰 {f.get('file_name')}"
-        buttons.append([
-            InlineKeyboardButton(
-                btn_text,
-                callback_data=f"getfile:{file_link}"
-            )
-        ])
+        # File download button
+        btn_download = InlineKeyboardButton(
+            btn_text,
+            callback_data=f"getfile:{file_link}"
+        )
+
+        # View full name button
+        btn_view = InlineKeyboardButton(
+            "👀 View",
+            callback_data=f"viewfile:{f['channel_id']}:{f['message_id']}"
+        )
+
+        buttons.append([btn_download, btn_view])
 
     # Pagination
     page_buttons = []
@@ -833,6 +840,22 @@ async def send_file_callback(client, callback_query: CallbackQuery):
         bot.loop.create_task(delete_after_delay(send_file))
     except Exception as e:
         await callback_query.answer(f"Failed: {e}", show_alert=True)
+
+@bot.on_callback_query(filters.regex(r"^viewfile:(-?\d+):(\d+)$"))
+async def view_file_callback_handler(client, callback_query: CallbackQuery):
+    channel_id = int(callback_query.matches[0].group(1))
+    message_id = int(callback_query.matches[0].group(2))
+
+    # Fetch file from DB
+    file_doc = files_col.find_one({"channel_id": channel_id, "message_id": message_id})
+    if not file_doc:
+        await callback_query.answer("❌ File not found!", show_alert=True)
+        return
+
+    file_name = file_doc.get("file_name", "Unknown file")
+
+    # Show as a toast (non-blocking notification)
+    await callback_query.answer(file_name, show_alert=True)
 
 @bot.on_callback_query(filters.regex(r"^noop$"))
 async def noop_callback_handler(client, callback_query: CallbackQuery):

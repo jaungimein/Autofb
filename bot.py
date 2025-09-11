@@ -95,7 +95,7 @@ async def imgbb_auto_handler(client, message):
         # If message contains a URL → ask for caption
         if re.search(r'https?://\S+|www\.\S+', text):
             pending_captions[user_id] = text
-            await message.reply_text("📝 Please reply with a caption for this image.")
+            reply = await message.reply_text("📝 Please reply with a caption for this image.")
             return True   # handled by imgbb
 
         # If user already sent a URL before → treat current msg as caption
@@ -123,6 +123,7 @@ async def imgbb_auto_handler(client, message):
                 await message.reply_text(f"❌ Failed to upload image to imgbb: {e}")
             finally:
                 await imgbb_client.close()
+                await auto_delete_message(message, reply)
             return True   # handled by imgbb
 
         return False  # not handled, continue with query logic
@@ -233,7 +234,7 @@ async def start_handler(client, message):
             else:
                 joined_str = "Unknown"
 
-            buttons = [InlineKeyboardButton("🤖 Updates", url=UPDATE_CHANNEL_LINK)] + [
+            buttons = [
                     InlineKeyboardButton(name, callback_data=f"gen_invite:{chan_id}")
                         for name, chan_id in UPDATE_CHANNELS.items()
                         ]
@@ -243,7 +244,7 @@ async def start_handler(client, message):
             welcome_text = (
                 f"👋 Hi, {user_link}! 🔰\n\n"
                 f"I'm Auto Filter 🤖\n" 
-                f"Here you can search files in \n" 
+                f"Here you can search files in PM\n" 
                 f"Use the below buttons to get updates or send me the name of file to search.\n\n"
                 f"🗓️ You joined: <code>{joined_str}</code>\n\n"
                 f"❤️ Enjoy your experience here! ❤️"
@@ -424,7 +425,7 @@ async def delete_command(client, message):
             except Exception as e:
                 reply = await message.reply_text(f"Error: {e}")
         elif delete_type == "imgbb":
-            result = imgbb_col.delete_one({"caption": user_input})
+            result = imgbb_col.delete_one({"pic_url": user_input})
             if result.deleted_count > 0:
                 reply = await message.reply_text(f"Database record deleted : {user_input}")
             else:

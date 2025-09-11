@@ -2,6 +2,7 @@
 # Imports
 # =========================
 import asyncio
+import imgbbpy
 import base64
 from bson import ObjectId
 import os
@@ -30,7 +31,7 @@ from db import (db, users_col,
                 files_col, 
                 allowed_channels_col, 
                 auth_users_col,
-                tmdb_col
+                tmdb_col, imgbb_col
                 )
 
 from fast_api import api
@@ -61,6 +62,7 @@ bot = Client(
 # Track how many files each user has accessed in the current session
 user_file_count = defaultdict(int)
 copy_lock = asyncio.Lock()
+pending_captions = {}
 
 if "file_name_text" not in [idx["name"] for idx in files_col.list_indexes()]:
     files_col.create_index([("file_name", "text")])
@@ -80,10 +82,53 @@ def sanitize_query(query):
     query = re.sub(r"[.\s_\-\(\)\[\]]+", " ", query).strip()
     return query
 
-def contains_url(text):
-    url_pattern = r'https?://\S+|www\.\S+'
-    return re.search(url_pattern, text) is not None
+async def imgbb_auto_handler(client, message):
+    try:
+        text = message.text.strip()
+        user_id = message.from_user.id
 
+        if user_id != OWNER_ID:
+            return False  # not handled → continue with quer
+
+        # If message contains a URL → ask for caption
+        if re.search(r'https?://\S+|www\.\S+', text):
+            pending_captions[user_id] = text
+            await message.reply_text("📝 Please reply with a caption for this image.")
+            return True   # handled by imgbb
+
+        # If user already sent a URL before → treat current msg as caption
+        if user_id in pending_captions:
+            image_url = pending_captions.pop(user_id)
+            caption = text
+
+            imgbb_client = imgbbpy.AsyncClient(IMGBB_API_KEY)
+            try:
+                pic = await imgbb_client.upload(url=image_url, name=caption)
+                pic_doc = {
+                    "pic_url": pic.url,
+                    "caption": caption,
+                }
+                imgbb_col.insert_one(pic_doc)
+
+                # Send to channel
+                await bot.send_photo(
+                    UPDATE_CHANNEL_ID3,
+                    pic.url,
+                    caption=f"<code>{caption}</code>"
+                )
+
+            except Exception as e:
+                await message.reply_text(f"❌ Failed to upload image to imgbb: {e}")
+            finally:
+                await imgbb_client.close()
+            return True   # handled by imgbb
+
+        return False  # not handled, continue with query logic
+
+    except Exception as e:
+        await message.reply_text(f"⚠️ An unexpected error occurred: {e}")
+        return True  # stop query flow if error
+    
 # =========================
 # Bot Command Handlers
 # =========================
@@ -601,6 +646,10 @@ async def instant_search_handler(client, message):
     reply = None
     user_id = message.from_user.id
     try:   
+        handled = await imgbb_auto_handler(client, message)
+        if handled:
+            return
+
         query = sanitize_query(message.text)
         query_id = store_query(query)
 

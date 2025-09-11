@@ -778,9 +778,8 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
                 callback_data=f"getfile:{file_link}"
             )
         else:
-            # View mode → just 👀
             btn = InlineKeyboardButton(
-                "👀",
+                btn_text,
                 callback_data=f"viewfile:{f['channel_id']}:{f['message_id']}"
             )
         buttons.append([btn])
@@ -797,8 +796,9 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
         page_buttons.append(InlineKeyboardButton("➡️ Next", callback_data=next_data))
 
     toggle_mode = 1 if mode == 0 else 0
+    toggle_icon = "👁️" if mode == 0 else "📲"
     toggle_data = f"search_channel:{query_id}:{channel_id}:{page}:{toggle_mode}"
-    page_buttons.append(InlineKeyboardButton("👀", callback_data=toggle_data))
+    page_buttons.append(InlineKeyboardButton(toggle_icon, callback_data=toggle_data))
 
     reply_markup = InlineKeyboardMarkup(buttons + ([page_buttons] if page_buttons else []))
 

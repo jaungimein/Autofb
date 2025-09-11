@@ -790,13 +790,13 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
         prev_data = f"search_channel:{query_id}:{channel_id}:{page - 1}:{mode}"
         page_buttons.append(InlineKeyboardButton("⬅️ Prev", callback_data=prev_data))
     # Page info button (not clickable)
-    page_buttons.append(InlineKeyboardButton(f"Page {page}/{total_pages}", callback_data="noop"))
+    page_buttons.append(InlineKeyboardButton(f"📃 {page}/{total_pages}", callback_data="noop"))
     if page < total_pages:
         next_data = f"search_channel:{query_id}:{channel_id}:{page + 1}:{mode}"
         page_buttons.append(InlineKeyboardButton("➡️ Next", callback_data=next_data))
 
     toggle_mode = 1 if mode == 0 else 0
-    toggle_icon = "👁️" if mode == 0 else "📲"
+    toggle_icon = "👁️ View" if mode == 0 else "📲 Send"
     toggle_data = f"search_channel:{query_id}:{channel_id}:{page}:{toggle_mode}"
     page_buttons.append(InlineKeyboardButton(toggle_icon, callback_data=toggle_data))
 

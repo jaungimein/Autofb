@@ -769,16 +769,16 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     for f in files:
         file_link = encode_file_link(f["channel_id"], f["message_id"])
         size_str = human_readable_size(f.get('file_size', 0))
-        btn_text = f"{size_str} 🔰 {f.get('file_name')}"
+        short_name = f.get('file_name')[:40] + "..." if len(f.get('file_name', '')) > 40 else f.get('file_name')
         # File download button
         btn_download = InlineKeyboardButton(
-            btn_text,
+            f"{size_str} 🔰 {short_name}",
             callback_data=f"getfile:{file_link}"
         )
 
         # View full name button
         btn_view = InlineKeyboardButton(
-            "👀 View",
+            "👀",
             callback_data=f"viewfile:{f['channel_id']}:{f['message_id']}"
         )
 

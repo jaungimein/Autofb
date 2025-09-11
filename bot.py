@@ -731,7 +731,7 @@ async def instant_search_handler(client, message):
 
 
 # Callback handler when user selects a channel to search in
-@bot.on_callback_query(filters.regex(r"^search_channel:(.+):(-?\d+):(\d+)$"))
+@bot.on_callback_query(filters.regex(r"^search_channel:(.+):(-?\d+):(\d+):(\d+)$"))
 async def channel_search_callback_handler(client, callback_query: CallbackQuery):    
     query_id = callback_query.matches[0].group(1)
     query = get_query_by_id(query_id)
@@ -740,6 +740,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     query = sanitize_query(unquote_plus(query))
     skip = (page - 1) * SEARCH_PAGE_SIZE
     user_link = await get_user_link(callback_query.from_user)
+    mode = int(callback_query.matches[0].group(4))  # 0 = Get mode, 1 = View mode
 
     pipeline = build_search_pipeline(query, [channel_id], skip, SEARCH_PAGE_SIZE)
     result = list(files_col.aggregate(pipeline))
@@ -767,35 +768,41 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     text = (f"<b>📂 Here's what i found for {query}</b>")
     buttons = []
     for f in files:
-        file_link = encode_file_link(f["channel_id"], f["message_id"])
         size_str = human_readable_size(f.get('file_size', 0))
-        short_name = f.get('file_name')[:40] + "..." if len(f.get('file_name', '')) > 40 else f.get('file_name')
-        # File download button
-        btn_download = InlineKeyboardButton(
-            f"{size_str} 🔰 {short_name}",
-            callback_data=f"getfile:{file_link}"
-        )
-
-        # View full name button
-        btn_view = InlineKeyboardButton(
-            "👀",
-            callback_data=f"viewfile:{f['channel_id']}:{f['message_id']}"
-        )
-
-        buttons.append([btn_download, btn_view])
+        btn_text = f"{size_str} 🔰 {f.get('file_name')}"
+        file_link = encode_file_link(f['channel_id'], f['message_id'])
+        if mode == 0:
+            # Normal Get button
+            btn = InlineKeyboardButton(
+                btn_text,
+                callback_data=f"getfile:{file_link}"
+            )
+        else:
+            # View mode → just 👀
+            btn = InlineKeyboardButton(
+                "👀",
+                callback_data=f"viewfile:{f['channel_id']}:{f['message_id']}"
+            )
+        buttons.append([btn])
 
     # Pagination
     page_buttons = []
     if page > 1:
-        prev_data = f"search_channel:{query_id}:{channel_id}:{page - 1}"
+        prev_data = f"search_channel:{query_id}:{channel_id}:{page - 1}:{mode}"
         page_buttons.append(InlineKeyboardButton("⬅️ Prev", callback_data=prev_data))
-    # Page info button (not clickable)
+
     page_buttons.append(InlineKeyboardButton(f"Page {page}/{total_pages}", callback_data="noop"))
+
     if page < total_pages:
-        next_data = f"search_channel:{query_id}:{channel_id}:{page + 1}"
+        next_data = f"search_channel:{query_id}:{channel_id}:{page + 1}:{mode}"
         page_buttons.append(InlineKeyboardButton("➡️ Next", callback_data=next_data))
 
-    reply_markup = InlineKeyboardMarkup(buttons + ([page_buttons] if page_buttons else []))
+    # 👀 toggle button
+    toggle_mode = 1 if mode == 0 else 0
+    toggle_data = f"search_channel:{query_id}:{channel_id}:{page}:{toggle_mode}"
+    page_buttons.append(InlineKeyboardButton("👀", callback_data=toggle_data))
+
+    reply_markup = InlineKeyboardMarkup(buttons + [page_buttons])
 
     try:
         await safe_api_call(callback_query.edit_message_text(
@@ -847,7 +854,6 @@ async def view_file_callback_handler(client, callback_query: CallbackQuery):
     channel_id = int(callback_query.matches[0].group(1))
     message_id = int(callback_query.matches[0].group(2))
 
-    # Fetch file from DB
     file_doc = files_col.find_one({"channel_id": channel_id, "message_id": message_id})
     if not file_doc:
         await callback_query.answer("❌ File not found!", show_alert=True)
@@ -855,9 +861,9 @@ async def view_file_callback_handler(client, callback_query: CallbackQuery):
 
     file_name = file_doc.get("file_name", "Unknown file")
 
-    # Show as a toast (non-blocking notification)
+    # Pop full filename as alert
     await callback_query.answer(file_name, show_alert=True)
-
+    
 @bot.on_callback_query(filters.regex(r"^noop$"))
 async def noop_callback_handler(client, callback_query: CallbackQuery):
     await callback_query.answer()  # Instantly respond, does nothing

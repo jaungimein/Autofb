@@ -118,12 +118,11 @@ async def imgbb_auto_handler(client, message):
                     pic.url,
                     caption=caption
                 )
-
+                bot.loop.create_task(auto_delete_message(message, reply))
             except Exception as e:
                 await message.reply_text(f"❌ Failed to upload image to imgbb: {e}")
             finally:
                 await imgbb_client.close()
-                await auto_delete_message(message, reply)
             return True   # handled by imgbb
 
         return False  # not handled, continue with query logic

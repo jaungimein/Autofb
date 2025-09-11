@@ -239,8 +239,10 @@ async def start_handler(client, message):
             keyboard = [buttons[i:i+2] for i in range(0, len(buttons), 2)]
 
             welcome_text = (
-                f"👋 🔰 Hello {user_link}! 🔰\n\n"
-                f"I'm an Auto Filter Bot 🤖 used to search documents\n\n"
+                f"👋 Hi, {user_link}! 🔰\n\n"
+                f"I'm Auto Filter 🤖" 
+                f"Here you can search files in PM" 
+                f"Use the below buttons to get updates or send me the name of file to search.\n\n"
                 f"🗓️ You joined: <code>{joined_str}</code>\n\n"
                 f"❤️ Enjoy your experience here! ❤️"
             )

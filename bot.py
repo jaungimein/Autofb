@@ -96,7 +96,7 @@ async def imgbb_auto_handler(client, message):
         if re.search(r'https?://\S+|www\.\S+', text):
             pending_captions[user_id] = text
             reply = await message.reply_text("📝 Please reply with a caption for this image.")
-            bot.loop.create_task(auto_delete_message(message, reply))
+            bot.loop.create_task(delete_after_delay(reply))
             return True   # handled by imgbb
 
         # If user already sent a URL before → treat current msg as caption
@@ -119,6 +119,7 @@ async def imgbb_auto_handler(client, message):
                     pic.url,
                     caption=caption
                 )
+                await safe_api_call(message.delete())
             except Exception as e:
                 await message.reply_text(f"❌ Failed to upload image to imgbb: {e}")
             finally:

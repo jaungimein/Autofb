@@ -102,7 +102,7 @@ async def imgbb_auto_handler(client, message):
         # If user already sent a URL before → treat current msg as caption
         if user_id in pending_captions:
             image_url = pending_captions.pop(user_id)
-            caption = text
+            caption = re.sub(r'\.', ' ', text)
 
             imgbb_client = imgbbpy.AsyncClient(IMGBB_API_KEY)
             try:

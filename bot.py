@@ -25,7 +25,9 @@ from utility import (
     queue_file_for_processing, file_queue_worker,
     file_queue, extract_tmdb_link, periodic_expiry_cleanup,
     restore_tmdb_photos, build_search_pipeline,
-    get_user_link, delete_after_delay)
+    get_user_link, delete_after_delay,
+    restore_imgbb_photos
+    )
 from db import (db, users_col, 
                 tokens_col, 
                 files_col, 
@@ -114,7 +116,7 @@ async def imgbb_auto_handler(client, message):
                 await bot.send_photo(
                     UPDATE_CHANNEL_ID3,
                     pic.url,
-                    caption=f"<code>{caption}</code>"
+                    caption=caption
                 )
 
             except Exception as e:
@@ -240,8 +242,8 @@ async def start_handler(client, message):
 
             welcome_text = (
                 f"👋 Hi, {user_link}! 🔰\n\n"
-                f"I'm Auto Filter 🤖" 
-                f"Here you can search files in PM" 
+                f"I'm Auto Filter 🤖\n" 
+                f"Here you can search files in \n" 
                 f"Use the below buttons to get updates or send me the name of file to search.\n\n"
                 f"🗓️ You joined: <code>{joined_str}</code>\n\n"
                 f"❤️ Enjoy your experience here! ❤️"
@@ -374,7 +376,7 @@ async def delete_command(client, message):
         args = message.text.split(maxsplit=3)
         reply = None
         if len(args) < 3:
-            reply = await message.reply_text("Usage: /del <file|tmdb> <link> [end_link]")
+            reply = await message.reply_text("Usage: /del <file|tmdb|imgbb> <link> [end_link]")
             return
         delete_type = args[1].strip().lower()
         user_input = args[2].strip()
@@ -421,9 +423,14 @@ async def delete_command(client, message):
                     reply = await message.reply_text(f"No TMDB record found with ID {tmdb_type}/{tmdb_id} in the database.")
             except Exception as e:
                 reply = await message.reply_text(f"Error: {e}")
-
+        elif delete_type == "imgbb":
+            result = imgbb_col.delete_one({"caption": user_input})
+            if result.deleted_count > 0:
+                reply = await message.reply_text(f"Database record deleted : {user_input}")
+            else:
+                reply = await message.reply_text(f"No record found with: {user_input}")
         else:
-            reply = await message.reply_text("Invalid delete type. Use 'file' or 'tmdb'.")
+            reply = await message.reply_text("Invalid delete type. Use 'file' or 'tmdb' or 'imgbb'.")
         if reply:
             bot.loop.create_task(auto_delete_message(message, reply))
     except Exception as e:
@@ -461,6 +468,8 @@ async def update_info(client, message):
                 return
         if restore_type == "tmdb":
             await restore_tmdb_photos(bot, start_id)
+        elif restore_type == "imgbb":
+            await restore_imgbb_photos(bot, start_id)
         else:
             await message.reply_text("Invalid restore type. Use 'tmdb'.")
     except Exception as e:

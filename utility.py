@@ -364,7 +364,7 @@ async def restore_imgbb_photos(bot, start_id=None):
                     bot.send_photo( 
                         UPDATE_CHANNEL_ID3,
                         photo=pic_url,
-                        caption=caption,
+                        caption=f"<b>{caption}</b>",
                         parse_mode=enums.ParseMode.HTML,
                     )
                 )

@@ -672,29 +672,7 @@ async def instant_search_handler(client, message):
         # Check if user is blocked
         if user_doc.get("blocked", True):
             return
-        
-        if not is_user_authorized(user_id):
-            now = datetime.now(timezone.utc)
-            token_doc = tokens_col.find_one({
-                "user_id": user_id,
-                "expiry": {"$gt": now}
-            })
-            token_id = token_doc["token_id"] if token_doc else generate_token(user_id)
-            short_link = shorten_url(get_token_link(token_id, BOT_USERNAME))
-            reply = await safe_api_call(message.reply_text(
-                text=(
-                    "🎉 Just one step away!\n\n"
-                    "To access files, please contribute a little by clicking the link below. "
-                    "It’s completely free for you — and it helps keep the bot running by supporting the server costs. ❤️\n\n"
-                    "Click below to get 24-hour access:"
-                ),
-                reply_markup=InlineKeyboardMarkup(
-                    [[InlineKeyboardButton("🔓 Get Access Link", url=short_link)]]
-                )
-            ))
-            bot.loop.create_task(auto_delete_message(message, reply))
-            return
-        
+                
         reply = await message.reply_text("Searching please wait ...")
 
         channels = list(allowed_channels_col.find({}, {"_id": 0, "channel_id": 1, "channel_name": 1}))
@@ -819,6 +797,28 @@ async def send_file_callback(client, callback_query: CallbackQuery):
     file_link = callback_query.matches[0].group(1)
     user_id = callback_query.from_user.id
     try:
+        if not is_user_authorized(user_id):
+            now = datetime.now(timezone.utc)
+            token_doc = tokens_col.find_one({
+                "user_id": user_id,
+                "expiry": {"$gt": now}
+            })
+            token_id = token_doc["token_id"] if token_doc else generate_token(user_id)
+            short_link = shorten_url(get_token_link(token_id, BOT_USERNAME))
+            reply = await safe_api_call(callback_query.edit_message_text(
+                text=(
+                    "🎉 Just one step away!\n\n"
+                    "To access files, please contribute a little by clicking the link below. "
+                    "It’s completely free for you — and it helps keep the bot running by supporting the server costs. ❤️\n\n"
+                    "Click below to get 24-hour access:"
+                ),
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("🔓 Get Access Link", url=short_link)]]
+                )
+            ))
+            bot.loop.create_task(delete_after_delay(reply))
+            return
+
         if user_file_count[user_id] >= MAX_FILES_PER_SESSION:
             await safe_api_call(callback_query.answer("Limit reached. Please take a break.", show_alert=True))
             return

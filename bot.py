@@ -201,8 +201,8 @@ async def start_handler(client, message):
 
             welcome_text = (
                 f"Hey {first_name}! 👋\n\n"
-                f"Welcome to <b>Auto Filter 🤖</b>.\n"
-                f"Type any name to search 🔍.\n"
+                f"Welcome to <b>Auto Filter 🤖</b>\n\n"
+                f"Type any name to search 🔍\n\n"
                 f"what’s available ❓ Tap below 👇\n\n"
                 f"<i>Joined on {joined_str}</i> 🎉"
             )
@@ -640,10 +640,9 @@ async def instant_search_handler(client, message):
             short_link = shorten_url(get_token_link(token_id, BOT_USERNAME))
             reply = await safe_api_call(message.reply_text(
                 text = (
-                    "📺 Watch a quick ad ⏳\n"
-                    "To unlock the contents.\n\n"
-                    "This is done to protect the contents.\n"
-                    "and manage the server costs.\n\n"
+                    "📺 Watch a quick ad ⏳ to unlock \n\n"
+                    "This is done to protect the 📂\n"
+                    "and manage the server costs 💰\n\n"
                     "✅ Enjoy full access for the day!"
                 ),
                 reply_markup=InlineKeyboardMarkup(

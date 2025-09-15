@@ -915,7 +915,7 @@ async def block_user_handler(client, message: Message):
         await message.reply_text(f"❌ Failed to block user: {e}")
 
 
-'''
+
 @bot.on_chat_join_request()
 async def approve_join_request_handler(client, join_request):
     """
@@ -923,11 +923,10 @@ async def approve_join_request_handler(client, join_request):
     """
     try:
         await client.approve_chat_join_request(join_request.chat.id, join_request.from_user.id)
-        # Optionally, you can log or notify somewhere:
-        # await bot.send_message(LOG_CHANNEL_ID, f"Approved join request for {join_request.from_user.mention} in {join_request.chat.title}")
+        await safe_api_call(bot.send_message(LOG_CHANNEL_ID, f"Approved join request for {join_request.from_user.mention} in {join_request.chat.title}"))
     except Exception as e:
         logger.error(f"Failed to approve join request: {e}")  
-'''
+
 # =========================
 # Main Entrypoint
 # =========================

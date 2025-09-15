@@ -138,7 +138,7 @@ async def get_info(tmdb_type, tmdb_id):
 
                 return {"message": message, "poster_url": poster_url, "trailer_url": trailer_url}
     except aiohttp.ClientError as e:
-        print(f"Error fetching TMDB data: {e}")
+        logger.error(f"Error fetching TMDB data: {e}")
     return {"message": f"Error: {str(e)}", "poster_url": None}
 
 def truncate_overview(overview):

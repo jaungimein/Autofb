@@ -200,19 +200,14 @@ async def start_handler(client, message):
             keyboard = [buttons[i:i+2] for i in range(0, len(buttons), 2)]
 
             welcome_text = (
-                f"Hey {first_name}! 👋 Welcome to our\n"
-                f"<b>Auto Filter Bot</b> — your handy helper\n"
-                f"in PM.\n\n"
-                f"Just type any content name you want,\n"
-                f"and I’ll find it for you fast 🔍.\n"
-                f"Not sure what’s available? No worries!\n"
-                f"Tap the buttons below to see\n"
-                f"what’s available 📚.\n\n"
-                f"<i>Joined on {joined_str}</i> 🎉\n\n"
-                f"Give it a try and find what you\n"
-                f"need in a snap! ⚡"
+                f"Hey {first_name}! 👋\n"
+                f"Use <b>Auto Filter Bot</b> here.\n"
+                f"Type any name, get results fast 🔍.\n"
+                f"Not sure? Tap below to see all 📚.\n"
+                f"<i>Joined on {joined_str}</i> 🎉\n"
+                f"Let’s go! ⚡"
             )
-            
+
             reply_msg = await safe_api_call(message.reply_text(
                 welcome_text,
                 reply_markup=InlineKeyboardMarkup(keyboard),
@@ -646,18 +641,12 @@ async def instant_search_handler(client, message):
             short_link = shorten_url(get_token_link(token_id, BOT_USERNAME))
             reply = await safe_api_call(message.reply_text(
                 text = (
-                    "📺 Access Content by Watching a\n"
-                    "Short Ad ⏳\n\n"
-                    "To get content access, please\n"
-                    "watch a short ad (about 2 mins).\n"
-                    "This helps us cover server costs\n"
-                    "and keep bots away 🚫🤖.\n\n"
-                    "✅ After that, enjoy full access\n"
-                    "for the rest of the day — no\n"
-                    "interruptions!\n"
-                    "Thanks for your support 🙏.\n\n"
-                    "Tap below to start the ad and\n"
-                    "unlock your content 🔓."
+                    "📺 Watch a quick ad ⏳\n"
+                    "to unlock content.\n\n"
+                    "This keeps bots out 🚫🤖\n"
+                    "and supports us.\n\n"
+                    "✅ Enjoy full access\n"
+                    "for the day!\n\n"
                 ),
                 reply_markup=InlineKeyboardMarkup(
                     [[InlineKeyboardButton("🔓 Unlock", url=short_link)]]

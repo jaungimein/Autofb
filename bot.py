@@ -592,22 +592,11 @@ async def tmdb_command(client, message):
 
         keyboard = InlineKeyboardMarkup(
             [[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
-
         if poster_url:
             await safe_api_call(
                 client.send_photo(
                     UPDATE_CHANNEL_ID,
                     photo=poster_url,
-                    caption=info,
-                    parse_mode=enums.ParseMode.HTML,
-                    reply_markup=keyboard
-                )
-            )
-        else:
-            await safe_api_call(
-                client.send_photo(
-                    UPDATE_CHANNEL_ID,
-                    photo="https://i.ibb.co/qzmwLvx/No-Image-Available.jpg",
                     caption=info,
                     parse_mode=enums.ParseMode.HTML,
                     reply_markup=keyboard

@@ -331,7 +331,6 @@ async def restore_tmdb_photos(bot, start_id=None):
             info = results.get('message')
             keyboard = InlineKeyboardMarkup(
                 [[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
-
             if poster_url:
                 await safe_api_call(
                     bot.send_photo(
@@ -342,16 +341,6 @@ async def restore_tmdb_photos(bot, start_id=None):
                         reply_markup=keyboard
                     )
                 )
-            else:
-                await safe_api_call(
-                    bot.send_photo(
-                        UPDATE_CHANNEL_ID,
-                        photo="https://i.ibb.co/qzmwLvx/No-Image-Available.jpg",
-                        caption=info,
-                        parse_mode=enums.ParseMode.HTML,
-                        reply_markup=keyboard
-                    )
-            )
         except Exception as e:
             logger.error(f"Error in restore_tmdb_photos for tmdb_id={tmdb_id}: {e}")
             continue  # Continue to the next doc
@@ -546,18 +535,7 @@ async def file_queue_worker(bot):
                                             parse_mode=enums.ParseMode.HTML,
                                             reply_markup=keyboard
                                         )
-                                    )
-                                else:
-                                    await safe_api_call(
-                                        bot.send_photo(
-                                            UPDATE_CHANNEL_ID,
-                                            photo="https://i.ibb.co/qzmwLvx/No-Image-Available.jpg",
-                                            caption=info,
-                                            parse_mode=enums.ParseMode.HTML,
-                                            reply_markup=keyboard
-                                        )
-                                    ) 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                    )                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                     upsert_tmdb_info(tmdb_id, tmdb_type)
 
                     except Exception as e:

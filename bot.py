@@ -142,7 +142,6 @@ async def start_handler(client, message):
     Handles the /start command.
     - Registers the user.
     - Handles token-based authorization.
-    - Handles file access via deep link.
     - Sends a greeting if no special argument is provided.
     - Deletes every message sent and received, but only once after all tasks are done.
     """
@@ -150,7 +149,7 @@ async def start_handler(client, message):
     try: 
         user_id = message.from_user.id
         user_link = await get_user_link(message.from_user) 
-        first_name = message.from_user.first_name or None
+        first_name = message.from_user.first_name or "there"
         username = message.from_user.username or None
         # Add user (or fetch existing)
         user_doc = add_user(user_id)
@@ -180,47 +179,6 @@ async def start_handler(client, message):
                 reply_msg = await safe_api_call(message.reply_text("❌ Invalid or expired token. Please get a new link."))
                 await safe_api_call(bot.send_message(LOG_CHANNEL_ID, f"❌ User <b>{user_link}</b> used invalid or expired token."))
 
-        # --- File access via deep link ---
-        elif len(message.command) == 2 and message.command[1].startswith("file_"):
-            # Check if user is authorized, but skip for OWNER_ID
-            if user_id != OWNER_ID and not is_user_authorized(user_id):
-                now = datetime.now(timezone.utc)
-                token_doc = tokens_col.find_one({
-                    "user_id": user_id,
-                    "expiry": {"$gt": now}
-                })
-                token_id = token_doc["token_id"] if token_doc else generate_token(user_id)
-                short_link = shorten_url(get_token_link(token_id, BOT_USERNAME))
-                reply_msg = await safe_api_call(message.reply_text(
-                    "❌ You are not authorized\n"
-                    "Please use this link to get access for 24 hours:",
-                    reply_markup=InlineKeyboardMarkup(
-                    [[InlineKeyboardButton("Get Access Link", url=short_link)]]
-                    )
-                ))
-            elif user_id != OWNER_ID and user_file_count[user_id] >= MAX_FILES_PER_SESSION:
-                reply_msg = await safe_api_call(message.reply_text("❌ You have reached the maximum of 10 files per session."))
-            else:
-                # Decode file link and send file
-                try: 
-                    b64 = message.command[1][5:]
-                    padding = '=' * (-len(b64) % 4)
-                    decoded = base64.urlsafe_b64decode(b64 + padding).decode()
-                    channel_id_str, msg_id_str = decoded.split("_")
-                    channel_id = int(channel_id_str)
-                    msg_id = int(msg_id_str)
-                    file_doc = files_col.find_one({"channel_id": channel_id, "message_id": msg_id})
-                    if not file_doc:
-                        reply_msg = await safe_api_call(message.reply_text("File not found."))
-                    else:
-                        reply_msg = await safe_api_call(client.copy_message(
-                            chat_id=message.chat.id,
-                            from_chat_id=file_doc["channel_id"],
-                            message_id=file_doc["message_id"]
-                        ))
-                        user_file_count[user_id] += 1
-                except Exception as e:
-                    reply_msg = await safe_api_call(message.reply_text(f"Failed to send file: {e}"))
         # --- Default greeting ---
         else:
             # Get user join date from users_col
@@ -242,12 +200,13 @@ async def start_handler(client, message):
             keyboard = [buttons[i:i+2] for i in range(0, len(buttons), 2)]
 
             welcome_text = (
-                f"👋 Hi, {user_link}! 🔰\n\n"
-                f"I'm Auto Filter 🤖\n" 
-                f"Here you can search files in PM\n" 
-                f"Use the below buttons to get updates or send me the name of file to search.\n\n"
-                f"🗓️ You joined: <code>{joined_str}</code>\n\n"
-                f"❤️ Enjoy your experience here! ❤️"
+                f"Hey {first_name}! 👋 You can use our <b>Auto Filter Bot</b> right here in PM.\n"
+                f"Just type the name of any content you’re looking for,\n"
+                f"and the bot will search it for you instantly 🔍.\n"
+                f"Not sure what’s available? No worries — just tap the buttons below\n"
+                f"to see all the <i>content options</i> you can explore 📚.\n\n"
+                f"<i>Joined on {joined_str}</i>\n\n"
+                f"Give it a try and find what you need quickly! ⚡"
             )
 
             reply_msg = await safe_api_call(message.reply_text(
@@ -672,6 +631,31 @@ async def instant_search_handler(client, message):
         # Check if user is blocked
         if user_doc.get("blocked", True):
             return
+        
+        if not is_user_authorized(user_id):
+            now = datetime.now(timezone.utc)
+            token_doc = tokens_col.find_one({
+                "user_id": user_id,
+                "expiry": {"$gt": now}
+            })
+            token_id = token_doc["token_id"] if token_doc else generate_token(user_id)
+            short_link = shorten_url(get_token_link(token_id, BOT_USERNAME))
+            reply = await safe_api_call(message.reply_text(
+                        text = (
+                            "📺 Access Content by Watching a Short Ad\n\n"
+                            "To access the content, please watch a short ad (about 2 minutes).\n"
+                            "This helps us cover server costs and protects our content from automated bots.\n\n"
+                            "✅ Once you’re done, you’ll get full access for the rest of the day — no interruptions!\n"
+                            "We appreciate your support and understanding.\n\n"
+                            "Tap below to start the ad and unlock access."
+                        ),
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("🔓 Unlock", url=short_link)]]
+                )
+            ))
+            bot.loop.create_task(delete_after_delay(reply))
+            return
+
                 
         reply = await message.reply_text("Searching please wait ...")
 
@@ -681,7 +665,7 @@ async def instant_search_handler(client, message):
             return
 
         # Show channel selection buttons
-        text = (f"<b>✅ Select a Category</b>")
+        text = (f"<b>🛒 Choose a Category</b>")
         buttons = []
         for c in channels:
             chan_id = c["channel_id"]
@@ -797,28 +781,6 @@ async def send_file_callback(client, callback_query: CallbackQuery):
     file_link = callback_query.matches[0].group(1)
     user_id = callback_query.from_user.id
     try:
-        if not is_user_authorized(user_id):
-            now = datetime.now(timezone.utc)
-            token_doc = tokens_col.find_one({
-                "user_id": user_id,
-                "expiry": {"$gt": now}
-            })
-            token_id = token_doc["token_id"] if token_doc else generate_token(user_id)
-            short_link = shorten_url(get_token_link(token_id, BOT_USERNAME))
-            reply = await safe_api_call(callback_query.edit_message_text(
-                text=(
-                    "🎉 Just one step away!\n\n"
-                    "To access files, please contribute a little by clicking the link below. "
-                    "It’s completely free for you — and it helps keep the bot running by supporting the server costs. ❤️\n\n"
-                    "Click below to get 24-hour access:"
-                ),
-                reply_markup=InlineKeyboardMarkup(
-                    [[InlineKeyboardButton("🔓 Get Access Link", url=short_link)]]
-                )
-            ))
-            bot.loop.create_task(delete_after_delay(reply))
-            return
-
         if user_file_count[user_id] >= MAX_FILES_PER_SESSION:
             await safe_api_call(callback_query.answer("Limit reached. Please take a break.", show_alert=True))
             return

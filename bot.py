@@ -649,7 +649,7 @@ async def instant_search_handler(client, message):
                     [[InlineKeyboardButton("🔓 Unlock", url=short_link)]]
                 )
             ))
-            bot.loop.create_task(delete_after_delay(reply))
+            bot.loop.create_task(auto_delete_message(message, reply))
             return
 
                 

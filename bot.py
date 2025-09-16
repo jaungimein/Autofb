@@ -168,7 +168,7 @@ async def start_handler(client, message):
         if len(message.command) == 2 and message.command[1].startswith("token_"):
             if is_token_valid(message.command[1][6:], user_id):
                 authorize_user(user_id)
-                reply_msg = await safe_api_call(message.reply_text("✅ You are now authorized to access files for 24 hours."))
+                reply_msg = await safe_api_call(message.reply_text("✅ Unlocked successfully for 24 hours !"))
                 await safe_api_call(bot.send_message(LOG_CHANNEL_ID, f"✅ User <b>{user_link}</b> authorized via token."))
             else:
                 reply_msg = await safe_api_call(message.reply_text("❌ Invalid or expired token. Please get a new link."))
@@ -197,11 +197,11 @@ async def start_handler(client, message):
             keyboard = [buttons[i:i+2] for i in range(0, len(buttons)-1, 2)] + [[buttons[-1]]]
 
             welcome_text = (
-                f"Hey {first_name}! 👋\n\n"
-                f"Welcome to <b>Auto Filter 🤖</b>\n\n"
-                f"Type below 👇 to search 🔍\n\n"
-                f"what’s available ❓ Tap 👇\n\n"
-                f"<i>Joined on {joined_str}</i> 🎉"
+                f"<b>Hey {first_name}!</b> 👋\n"
+                f"<b>I'm Auto Filter 🤖</b>\n"
+                f"<b>Type below 👇 to 🔍</b>\n"
+                f"<b>what’s available ❓ Tap 👇</b>\n"
+                f"<b><i>Joined on {joined_str}</i></b> 🎉"
             )
 
             reply_msg = await safe_api_call(message.reply_text(

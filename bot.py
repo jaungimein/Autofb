@@ -26,7 +26,7 @@ from utility import (
     file_queue, extract_tmdb_link, periodic_expiry_cleanup,
     restore_tmdb_photos, build_files_pipeline,
     get_user_link, delete_after_delay,
-    restore_imgbb_photos, encode_file_link, render_files_results
+    restore_imgbb_photos, render_files_results
     )
 from db import (db, users_col, 
                 tokens_col, 

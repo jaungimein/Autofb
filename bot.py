@@ -200,11 +200,9 @@ async def start_handler(client, message):
             keyboard = [buttons[i:i+2] for i in range(0, len(buttons), 2)]
 
             welcome_text = (
-                f"<b>Hey {first_name}! 👋\n\n"
-                f"<b>I'm a Auto Filter Bot</b>\n\n"
-                f"Type any keyword to search 🔍\n\n"
-                f"What’s available ❓ 👇\n\n"
-                f"<i>Joined on {joined_str}</i> 🎉"
+                f"<b>Hey {first_name}! 👋</b>\n\n"
+                f"<b>Type any keyword to search 🔍</b>\n\n"
+                f"<b><i>Joined on {joined_str}</i></b> 🎉"
             )
 
             reply_msg = await safe_api_call(message.reply_text(
@@ -764,7 +762,7 @@ async def send_file_callback(client, callback_query: CallbackQuery):
             short_link = shorten_url(get_token_link(token_id, BOT_USERNAME))
             reply = await safe_api_call(callback_query.edit_message_text(
                 text = (
-                    "Get the key to unlock \n\n"
+                    "🚫 <b>Access denied!</b>"
                 ),
                 reply_markup=InlineKeyboardMarkup(
                     [[InlineKeyboardButton("🔓 Unlock", url=short_link)]]

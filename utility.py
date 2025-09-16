@@ -67,77 +67,109 @@ def invalidate_search_cache():
     search_cache.clear()
     search_api_cache.clear()
 
-def build_search_pipeline(query, allowed_ids, skip, limit):
-    # Split the query string into words
-    terms = query.strip().lower().split()
-
-    # Create a separate `text` clause for each term
-    must_clauses = [
-        {
-            "wildcard": {
-                "query": f"*{term}*",
-                "path": "file_name",
-                "allowAnalyzedField": True
+# =========================
+# MongoDB Aggregation Pipelines
+# =========================
+def build_files_pipeline(query=None, channel_id=None, skip=0, limit=10):
+    """
+    Returns a MongoDB aggregation pipeline for either search or browse mode.
+    If query is None or empty, it builds a browse pipeline.
+    If query is provided, it builds a search pipeline.
+    """
+    if query and query.strip():
+        # You can reuse your build_search_pipeline logic here
+        terms = query.strip().lower().split()
+        must_clauses = [
+            {
+                "wildcard": {
+                    "query": f"*{term}*",
+                    "path": "file_name",
+                    "allowAnalyzedField": True
+                }
+            }
+            for term in terms
+        ]
+        search_stage = {
+            "$search": {
+                "index": "default",
+                "compound": {
+                    "must": must_clauses
+                }
             }
         }
-        for term in terms
-    ]
-
-    # Build search stage with compound.must
-    search_stage = {
-        "$search": {
-            "index": "default",
-            "compound": {
-                "must": must_clauses
+        match_stage = {
+            "$match": {
+                "channel_id": channel_id
             }
         }
-    }
-
-    # Match allowed channel IDs
-    match_stage = {
-        "$match": {
-            "channel_id": {"$in": allowed_ids}
+        project_stage = {
+            "$project": {
+                "_id": 0,
+                "file_name": 1,
+                "file_size": 1,
+                "file_format": 1,
+                "message_id": 1,
+                "channel_id": 1,
+                "score": {"$meta": "searchScore"}
+            }
         }
-    }
-
-    # Project only necessary fields and search score
-    project_stage = {
-        "$project": {
-            "_id": 0,
-            "file_name": 1,
-            "file_size": 1,
-            "file_format": 1,
-            "message_id": 1,
-            "channel_id": 1,
-            "score": {"$meta": "searchScore"}
+        sort_stage = {
+            "$sort": {
+                "score": -1,
+                "file_name": 1
+            }
         }
-    }
-
-    # Sort results by score and then file name
-    sort_stage = {
-        "$sort": {
-            "score": -1,
-            "file_name": 1
+        facet_stage = {
+            "$facet": {
+                "results": [
+                    project_stage,
+                    sort_stage,
+                    {"$skip": skip},
+                    {"$limit": limit}
+                ],
+                "totalCount": [
+                    {"$count": "total"}
+                ]
+            }
         }
-    }
-
-    # Facet: paginated results and total count
-    facet_stage = {
-        "$facet": {
-            "results": [
-                project_stage,
-                sort_stage,
-                {"$skip": skip},
-                {"$limit": limit}
-            ],
-            "totalCount": [
-                {"$count": "total"}
-            ]
+        return [search_stage, match_stage, facet_stage]
+    else:
+        # Browse pipeline: just list all files in channel
+        match_stage = {
+            "$match": {
+                "channel_id": channel_id
+            }
         }
-    }
-
-    return [search_stage, match_stage, facet_stage]
-
+        project_stage = {
+            "$project": {
+                "_id": 0,
+                "file_name": 1,
+                "file_size": 1,
+                "file_format": 1,
+                "message_id": 1,
+                "channel_id": 1
+            }
+        }
+        sort_stage = {
+            "$sort": {
+                "message_id": -1  # latest first
+            }
+        }
+        facet_stage = {
+            "$facet": {
+                "results": [
+                    project_stage,
+                    sort_stage,
+                    {"$skip": skip},
+                    {"$limit": limit}
+                ],
+                "totalCount": [
+                    {"$count": "total"}
+                ]
+            }
+        }
+        return [match_stage, facet_stage]
+    
 # =========================
 # Channel & User Utilities
 # =========================
@@ -418,9 +450,56 @@ def remove_extension(caption):
         logger.error(e)
         return None
 
+def encode_file_link(channel_id, message_id):
+    # Returns a base64 string for deep linking
+    raw = f"{channel_id}_{message_id}".encode()
+    return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+
 # =========================
 # Async/Bot Utilities
 # =========================
+
+def render_files_results(files, channel_name, query=None, page=1, total_pages=1, mode=0, callback_prefix="browse_channel", query_id="__browse__", channel_id=None):
+    """
+    Returns (text, reply_markup) for the result page.
+    mode: 0 = send, 1 = view
+    callback_prefix: "browse_channel" or "search_channel"
+    query_id: used for search
+    channel_id: always provided
+    """
+    if query and query.strip():
+        text = f"<b>📂 Here's what I found for {query} in {channel_name}</b>"
+    else:
+        text = f"<b>📂 Files in {channel_name}</b>"
+    if not files:
+        text += "\nNo files found."
+    buttons = []
+    for f in files:
+        file_link = encode_file_link(f["channel_id"], f["message_id"])
+        size_str = human_readable_size(f.get('file_size', 0))
+        btn_text = f"{size_str} 🔰 {f.get('file_name')}"
+        if mode == 0:
+            btn = InlineKeyboardButton(btn_text, callback_data=f"getfile:{file_link}")
+        else:
+            btn = InlineKeyboardButton(btn_text, callback_data=f"viewfile:{f['channel_id']}:{f['message_id']}")
+        buttons.append([btn])
+    # Pagination controls
+    page_buttons = []
+    if page > 1:
+        prev_data = f"{callback_prefix}:{query_id}:{channel_id}:{page-1}:{mode}"
+        page_buttons.append(InlineKeyboardButton("⬅️ Prev", callback_data=prev_data))
+    page_buttons.append(InlineKeyboardButton(f"📃 {page}/{total_pages}", callback_data="noop"))
+    if page < total_pages:
+        next_data = f"{callback_prefix}:{query_id}:{channel_id}:{page+1}:{mode}"
+        page_buttons.append(InlineKeyboardButton("➡️ Next", callback_data=next_data))
+    # Toggle send/view mode
+    toggle_mode = 1 if mode == 0 else 0
+    toggle_icon = "👁️ View" if mode == 0 else "📲 Send"
+    toggle_data = f"{callback_prefix}:{query_id}:{channel_id}:{page}:{toggle_mode}"
+    page_buttons.append(InlineKeyboardButton(toggle_icon, callback_data=toggle_data))
+    reply_markup = InlineKeyboardMarkup(buttons + ([page_buttons] if page_buttons else []))
+    return text, reply_markup
+
 
 async def safe_api_call(coro):
     """Utility wrapper to add delay before every bot API call."""

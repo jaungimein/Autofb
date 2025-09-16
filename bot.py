@@ -197,8 +197,8 @@ async def start_handler(client, message):
             keyboard = [buttons[i:i+2] for i in range(0, len(buttons)-1, 2)] + [[buttons[-1]]]
 
             welcome_text = (
-                f"<b>Hey {first_name} I'm Auto Filter 🤖!</b>\n"
-                f"<b>Type below 👇 to 🔍 or Tap 👇</b>\n"
+                f"<b>Hey {first_name} I'm Auto Filter 🤖!</b>\n\n"
+                f"<b>Type 👇 to 🔍 or Tap 👇</b>\n\n"
                 f"<b><i>Joined on {joined_str}</i></b> 🎉"
             )
 

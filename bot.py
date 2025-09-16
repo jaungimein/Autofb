@@ -24,9 +24,9 @@ from utility import (
     auto_delete_message, human_readable_size,
     queue_file_for_processing, file_queue_worker,
     file_queue, extract_tmdb_link, periodic_expiry_cleanup,
-    restore_tmdb_photos, build_files_pipeline,
+    restore_tmdb_photos, build_search_pipeline,
     get_user_link, delete_after_delay,
-    restore_imgbb_photos, render_files_results
+    restore_imgbb_photos
     )
 from db import (db, users_col, 
                 tokens_col, 
@@ -68,6 +68,11 @@ pending_captions = {}
 
 if "file_name_text" not in [idx["name"] for idx in files_col.list_indexes()]:
     files_col.create_index([("file_name", "text")])
+
+def encode_file_link(channel_id, message_id):
+    # Returns a base64 string for deep linking
+    raw = f"{channel_id}_{message_id}".encode()
+    return base64.urlsafe_b64encode(raw).decode().rstrip("=")
 
 def sanitize_query(query):
     """Sanitizes and normalizes a search query for consistent matching of 'and' and '&'."""
@@ -168,7 +173,7 @@ async def start_handler(client, message):
         if len(message.command) == 2 and message.command[1].startswith("token_"):
             if is_token_valid(message.command[1][6:], user_id):
                 authorize_user(user_id)
-                reply_msg = await safe_api_call(message.reply_text("✅ Unlocked successfully for 24 hours !"))
+                reply_msg = await safe_api_call(message.reply_text("✅ Enjoy full access for the day!"))
                 await safe_api_call(bot.send_message(LOG_CHANNEL_ID, f"✅ User <b>{user_link}</b> authorized via token."))
             else:
                 reply_msg = await safe_api_call(message.reply_text("❌ Invalid or expired token. Please get a new link."))
@@ -192,14 +197,14 @@ async def start_handler(client, message):
                         for name, chan_id in UPDATE_CHANNELS.items()
                         ]
             
-            buttons.append(InlineKeyboardButton("🗂️ Browse", callback_data="browse:init"))
-            
-            keyboard = [buttons[i:i+2] for i in range(0, len(buttons)-1, 2)] + [[buttons[-1]]]
+            keyboard = [buttons[i:i+2] for i in range(0, len(buttons), 2)]
 
             welcome_text = (
-                f"<b>Hey {first_name} I'm Auto Filter 🤖!</b>\n\n"
-                f"<b>Type 👇 to 🔍 or Tap 👇</b>\n\n"
-                f"<b><i>Joined on {joined_str}</i></b> 🎉"
+                f"<b>Hey {first_name}! 👋\n\n"
+                f"<b>I'm a Auto Filter Bot</b>\n\n"
+                f"Type any keyword to search 🔍\n\n"
+                f"What’s available ❓ 👇\n\n"
+                f"<i>Joined on {joined_str}</i> 🎉"
             )
 
             reply_msg = await safe_api_call(message.reply_text(
@@ -619,7 +624,12 @@ async def instant_search_handler(client, message):
 
         if not query:
             return
-                                
+        
+        user_doc = add_user(user_id) 
+        # Check if user is blocked
+        if user_doc.get("blocked", True):
+            return
+                
         reply = await message.reply_text("Searching please wait ...")
 
         channels = list(allowed_channels_col.find({}, {"_id": 0, "channel_id": 1, "channel_name": 1}))
@@ -654,67 +664,89 @@ async def instant_search_handler(client, message):
     if reply:
         bot.loop.create_task(auto_delete_message(message, reply))
 
-@bot.on_callback_query(filters.regex(r"^browse:init$"))
-async def browse_init_handler(client, callback_query: CallbackQuery):
-    channels = list(allowed_channels_col.find({}, {"_id": 0, "channel_id": 1, "channel_name": 1}))
-    if not channels:
-        await safe_api_call(callback_query.edit_message_text("No categories available."))
-        await callback_query.answer()
-        return
-    text = "<b>🛒 Choose a Category to Browse</b>"
-    buttons = []
-    for c in channels:
-        chan_id = c["channel_id"]
-        chan_name = c.get("channel_name", str(chan_id))
-        # Use __browse__ as query_id for browse
-        data = f"browse_channel:__browse__:{chan_id}:1:0"
-        buttons.append([InlineKeyboardButton(chan_name, callback_data=data)])
-    reply_markup = InlineKeyboardMarkup(buttons)
-    await safe_api_call(callback_query.edit_message_text(
-        text,
-        reply_markup=reply_markup,
-        parse_mode=enums.ParseMode.HTML
-    ))
-    await callback_query.answer()
 
-
-@bot.on_callback_query(filters.regex(r"^(search_channel|browse_channel):(.+):(-?\d+):(\d+):(\d+)$"))
-async def files_channel_callback_handler(client, callback_query: CallbackQuery):
-    mode_type = callback_query.matches[0].group(1)
-    query_id = callback_query.matches[0].group(2)
-    channel_id = int(callback_query.matches[0].group(3))
-    page = int(callback_query.matches[0].group(4))
-    mode = int(callback_query.matches[0].group(5))
+# Callback handler when user selects a channel to search in
+@bot.on_callback_query(filters.regex(r"^search_channel:(.+):(-?\d+):(\d+):(\d+)$"))
+async def channel_search_callback_handler(client, callback_query: CallbackQuery):    
+    query_id = callback_query.matches[0].group(1)
+    query = get_query_by_id(query_id)
+    channel_id = int(callback_query.matches[0].group(2))
+    page = int(callback_query.matches[0].group(3))
+    mode = int(callback_query.matches[0].group(4))
+    query = sanitize_query(unquote_plus(query))
     skip = (page - 1) * SEARCH_PAGE_SIZE
+    user_link = await get_user_link(callback_query.from_user)
 
-    # Get query string if in search mode
-    if mode_type == "search_channel":
-        query = get_query_by_id(query_id)
-        query = sanitize_query(unquote_plus(query))
-    else:
-        query = None
-
-    pipeline = build_files_pipeline(query=query, channel_id=channel_id, skip=skip, limit=SEARCH_PAGE_SIZE)
+    pipeline = build_search_pipeline(query, [channel_id], skip, SEARCH_PAGE_SIZE)
     result = list(files_col.aggregate(pipeline))
     files = result[0]["results"] if result and result[0]["results"] else []
     total_files = result[0]["totalCount"][0]["total"] if result and result[0]["totalCount"] else 0
-    total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE or 1
 
     channel_info = allowed_channels_col.find_one({'channel_id': channel_id})
     channel_name = channel_info.get('channel_name', str(channel_id)) if channel_info else str(channel_id)
 
-    text, reply_markup = render_files_results(
-        files, channel_name, query=query, page=page,
-        total_pages=total_pages, mode=mode,
-        callback_prefix=mode_type, query_id=query_id, channel_id=channel_id
-    )
+    if not files:
+        await safe_api_call(callback_query.edit_message_text(
+            f"<b>❌ No result found for {query}</b>\n\n"
+            "Try like Inception | Loki | Loki S01 | Loki S01E01",
+            parse_mode=enums.ParseMode.HTML,
+            disable_web_page_preview=True)
+        )
+        await safe_api_call(bot.send_message(
+            LOG_CHANNEL_ID, 
+            f"🔎 No result for query:\n<code>{query}</code> in <b>{channel_name}</b>\nUser: {user_link}"
+        ))
+        await callback_query.answer()
+        return
 
-    await safe_api_call(callback_query.edit_message_text(
-        text,
-        reply_markup=reply_markup,
-        parse_mode=enums.ParseMode.HTML
-    ))
+    total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE
+    text = (f"<b>📂 Here's what i found for {query}</b>")
+    buttons = []
+    for f in files:
+        file_link = encode_file_link(f["channel_id"], f["message_id"])
+        size_str = human_readable_size(f.get('file_size', 0))
+        btn_text = f"{size_str} 🔰 {f.get('file_name')}"
+        if mode == 0:
+            # Normal Get button
+            btn = InlineKeyboardButton(
+                btn_text,
+                callback_data=f"getfile:{file_link}"
+            )
+        else:
+            btn = InlineKeyboardButton(
+                btn_text,
+                callback_data=f"viewfile:{f['channel_id']}:{f['message_id']}"
+            )
+        buttons.append([btn])
+
+    # Pagination
+    page_buttons = []
+    if page > 1:
+        prev_data = f"search_channel:{query_id}:{channel_id}:{page - 1}:{mode}"
+        page_buttons.append(InlineKeyboardButton("⬅️ Prev", callback_data=prev_data))
+    # Page info button (not clickable)
+    page_buttons.append(InlineKeyboardButton(f"📃 {page}/{total_pages}", callback_data="noop"))
+    if page < total_pages:
+        next_data = f"search_channel:{query_id}:{channel_id}:{page + 1}:{mode}"
+        page_buttons.append(InlineKeyboardButton("➡️ Next", callback_data=next_data))
+
+    toggle_mode = 1 if mode == 0 else 0
+    toggle_icon = "👁️ View" if mode == 0 else "📲 Send"
+    toggle_data = f"search_channel:{query_id}:{channel_id}:{page}:{toggle_mode}"
+    page_buttons.append(InlineKeyboardButton(toggle_icon, callback_data=toggle_data))
+
+    reply_markup = InlineKeyboardMarkup(buttons + ([page_buttons] if page_buttons else []))
+
+    try:
+        await safe_api_call(callback_query.edit_message_text(
+            text,
+            reply_markup=reply_markup,
+            parse_mode=enums.ParseMode.HTML
+        ))
+    except Exception:
+        pass
     await callback_query.answer()
+
 
 # Callback handler to send file to user
 @bot.on_callback_query(filters.regex(r"^getfile:(.+)$"))
@@ -732,7 +764,7 @@ async def send_file_callback(client, callback_query: CallbackQuery):
             short_link = shorten_url(get_token_link(token_id, BOT_USERNAME))
             reply = await safe_api_call(callback_query.edit_message_text(
                 text = (
-                    "🚫 Access Denied!"        
+                    "Get the key to unlock \n\n"
                 ),
                 reply_markup=InlineKeyboardMarkup(
                     [[InlineKeyboardButton("🔓 Unlock", url=short_link)]]

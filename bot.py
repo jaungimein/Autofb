@@ -674,6 +674,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     query = sanitize_query(unquote_plus(query))
     skip = (page - 1) * SEARCH_PAGE_SIZE
     user_link = await get_user_link(callback_query.from_user)
+    user_id = callback_query.from_user.id
 
     pipeline = build_search_pipeline(query, [channel_id], skip, SEARCH_PAGE_SIZE)
     result = list(files_col.aggregate(pipeline))
@@ -692,7 +693,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
         )
         await safe_api_call(bot.send_message(
             LOG_CHANNEL_ID, 
-            f"🔎 No result for query:\n<code>{query}</code> in <b>{channel_name}</b>\nUser: {user_link}"
+            f"🔎 No result for query:\n<code>{query}</code> in <b>{channel_name}</b>\nUser: {user_link} | {user_id}"
         ))
         await callback_query.answer()
         return

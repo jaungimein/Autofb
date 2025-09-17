@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from config import MY_DOMAIN
@@ -11,6 +11,8 @@ api.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+ITEMS_PER_PAGE = 10 
 
 @api.get("/")
 async def root():

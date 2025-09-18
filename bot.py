@@ -247,6 +247,64 @@ async def del_file_handler(client, message):
     except Exception as e:
         await logger.error(f"Error: {e}")
 
+@bot.on_message(filters.command("copy") & filters.private & filters.user(OWNER_ID))
+async def copy_file_handler(client, message):
+    try:
+        message.reply_text("Please forward the start message to copy")
+        start_msg = await client.listen(message.chat.id, timeout=120)
+        message.reply_text("Please forward the end message to copy")
+        end_msg = await client.listen(message.chat.id, timeout=120)
+        if start_msg.forward_from_chat.id != end_msg.forward_from_chat.id:
+            await message.reply_text("Both messages must be forwarded from same channel.")
+            return
+        
+        source_channel_id = start_msg.forward_from_chat.id
+        message.reply_text("Please forward the destination channel message")
+        dest_msg = await client.listen(message.chat.id, timeout=120)
+        dest_channel_id = dest_msg.forward_from_chat.id
+        if source_channel_id == dest_channel_id:
+            await message.reply_text("Source and destination channels must be different.")
+            return
+        start_id = start_msg.forward_from_message_id
+        end_id = end_msg.forward_from_message_id
+        if start_id >= end_id:
+            start_id, end_id = end_id, start_id
+        await message.reply_text(f"Copying messages from {start_id} to {end_id}...")
+        async with copy_lock:
+            for msg_id in range(start_id, end_id + 1):
+                msg = await safe_api_call(client.get_messages(source_channel_id, msg_id))
+                if not msg:
+                    continue
+                media = msg.document or msg.video or msg.audio 
+                if media:
+                    caption = msg.caption or media.file_name
+                    copied_msg = await safe_api_call(client.copy_message(
+                        chat_id=dest_channel_id,
+                        caption=f'<b>{caption}</b>',
+                        from_chat_id=source_channel_id,
+                        message_id=msg_id
+
+                    ))
+    except Exception as e:
+        logger.error(f" copy_file_handler Error: {e}")
+
+'''
+                        if copied_msg:
+                            await queue_file_for_processing(
+                                copied_msg,
+                                channel_id=dest_channel_id,
+                                reply_func=message.reply_text,
+                                duplicate=True
+                            )
+                            invalidate_search_cache()
+                    await asyncio.sleep(1)  # Rate limit
+                except Exception as e:
+                    logger.error(f"Failed to copy message {msg_id}: {e}")
+                    continue  
+        await message.reply_text("✅ Copying and indexing completed.")
+'''
+
+
 @bot.on_message(filters.command("index") & filters.private & filters.user(OWNER_ID))
 async def index_channel_files(client, message):
     """

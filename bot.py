@@ -250,16 +250,16 @@ async def del_file_handler(client, message):
 @bot.on_message(filters.command("copy") & filters.private & filters.user(OWNER_ID))
 async def copy_file_handler(client, message):
     try:
-        message.reply_text("Please forward the start message to copy")
+        await message.reply_text("Please forward the start message to copy")
         start_msg = await client.listen(message.chat.id, timeout=120)
-        message.reply_text("Please forward the end message to copy")
+        await message.reply_text("Please forward the end message to copy")
         end_msg = await client.listen(message.chat.id, timeout=120)
         if start_msg.forward_from_chat.id != end_msg.forward_from_chat.id:
             await message.reply_text("Both messages must be forwarded from same channel.")
             return
         
         source_channel_id = start_msg.forward_from_chat.id
-        message.reply_text("Please forward the destination channel message")
+        await message.reply_text("Please forward the destination channel message")
         dest_msg = await client.listen(message.chat.id, timeout=120)
         dest_channel_id = dest_msg.forward_from_chat.id
         if source_channel_id == dest_channel_id:

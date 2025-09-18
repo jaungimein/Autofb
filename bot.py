@@ -754,7 +754,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
         )
         await safe_api_call(bot.send_message(
             LOG_CHANNEL_ID, 
-            f"🔎 No result for query:\n<code>{query}</code> in <b>{channel_name}</b>\nUser: {user_link} | {user_id}"
+            f"🔎 No result for query:\n<code>{query}</code> in <b>{channel_name}</b>\nUser: {user_link} | <code>{user_id}</code>"
         ))
         await callback_query.answer()
         return

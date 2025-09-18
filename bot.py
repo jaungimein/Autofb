@@ -250,6 +250,7 @@ async def del_file_handler(client, message):
 @bot.on_message(filters.command("copy") & filters.private & filters.user(OWNER_ID))
 async def copy_file_handler(client, message):
     try:
+        count = 0
         await message.reply_text("Please forward the start message to copy")
         start_msg = await client.listen(message.chat.id, timeout=120)
         await message.reply_text("Please forward the end message to copy")
@@ -279,12 +280,14 @@ async def copy_file_handler(client, message):
                 if media:
                     caption = msg.caption or media.file_name
                     copied_msg = await safe_api_call(client.copy_message(
-                        chat_id=dest_channel_id,
+                      chat_id=dest_channel_id,
                         caption=f'<b>{caption}</b>',
-                        from_chat_id=source_channel_id,
+                        from_chat_id=source_channel_id, 
                         message_id=msg_id
 
                     ))
+                    count += 1
+            await message.reply_text(f"Copied {count} files to the destination")
     except Exception as e:
         logger.error(f" copy_file_handler Error: {e}")
 

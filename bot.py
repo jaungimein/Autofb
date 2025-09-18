@@ -270,7 +270,6 @@ async def copy_file_handler(client, message):
         end_id = end_msg.forward_from_message_id
         if start_id >= end_id:
             start_id, end_id = end_id, start_id
-        await message.reply_text(f"Copying messages from {start_id} to {end_id}...")
         async with copy_lock:
             for msg_id in range(start_id, end_id + 1):
                 msg = await safe_api_call(client.get_messages(source_channel_id, msg_id))
@@ -287,7 +286,7 @@ async def copy_file_handler(client, message):
 
                     ))
                     count += 1
-            await message.reply_text(f"Copied {count} files to the destination")
+            await message.reply_text(f"✅ Copied {count} files to the destination")
     except Exception as e:
         logger.error(f" copy_file_handler Error: {e}")
 

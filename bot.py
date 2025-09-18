@@ -666,7 +666,7 @@ async def tmdb_command(client, message):
 # Handles incoming text messages in private chat that aren't commands
 @bot.on_message(filters.private & filters.text & ~filters.command([
     "start", "stats", "add", "rm", "broadcast", "log", "tmdb", 
-    "restore", "index", "del", "restart", "chatop", "block"]))
+    "restore", "index", "del", "restart", "chatop", "block", "copy"]))
 async def instant_search_handler(client, message):
     reply = None
     user_id = message.from_user.id

@@ -250,6 +250,8 @@ async def del_file_handler(client, message):
 @bot.on_message(filters.command("copy") & filters.private & filters.user(OWNER_ID))
 async def copy_file_handler(client, message):
     try:
+        status_msg = None
+        
         status_msg = await message.reply_text("📥 <b>Please forward the <u>start</u> message to copy.</b>", parse_mode="html")
         start_msg = await client.listen(message.chat.id, timeout=120)
 

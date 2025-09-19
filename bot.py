@@ -174,10 +174,10 @@ async def start_handler(client, message):
             if is_token_valid(message.command[1][6:], user_id):
                 authorize_user(user_id)
                 reply_msg = await safe_api_call(message.reply_text("✅ Enjoy full access for the day!"))
-                await safe_api_call(bot.send_message(LOG_CHANNEL_ID, f"✅ User <b>{user_link}</b> authorized via token."))
+                await safe_api_call(bot.send_message(LOG_CHANNEL_ID, f"✅ User <b>{user_link}| <code>{user_id}</code></b> authorized via token."))
             else:
                 reply_msg = await safe_api_call(message.reply_text("❌ Invalid or expired token. Please get a new link."))
-                await safe_api_call(bot.send_message(LOG_CHANNEL_ID, f"❌ User <b>{user_link}</b> used invalid or expired token."))
+                await safe_api_call(bot.send_message(LOG_CHANNEL_ID, f"❌ User <b>{user_link}| <code>{user_id}</code></b> used invalid or expired token."))
 
         # --- Default greeting ---
         else:
@@ -801,12 +801,6 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     channel_name = channel_info.get('channel_name', str(channel_id)) if channel_info else str(channel_id)
 
     if not files:
-        await safe_api_call(callback_query.edit_message_text(
-            f"<b>❌ No result found for {query}</b>\n\n"
-            "Try like Inception | Loki | Loki S01 | Loki S01E01",
-            parse_mode=enums.ParseMode.HTML,
-            disable_web_page_preview=True)
-        )
         await safe_api_call(bot.send_message(
             LOG_CHANNEL_ID, 
             f"🔎 No result for query:\n<code>{query}</code> in <b>{channel_name}</b>\nUser: {user_link} | <code>{user_id}</code>"
@@ -1034,7 +1028,7 @@ async def approve_join_request_handler(client, join_request):
     """
     try:
         await client.approve_chat_join_request(join_request.chat.id, join_request.from_user.id)
-        await safe_api_call(bot.send_message(LOG_CHANNEL_ID, f"Approved join request for {join_request.from_user.mention} in {join_request.chat.title}"))
+        await safe_api_call(bot.send_message(LOG_CHANNEL_ID, f"✅ Approved join request for {join_request.from_user.mention} in {join_request.chat.title}"))
     except Exception as e:
         logger.error(f"Failed to approve join request: {e}")  
 

@@ -403,18 +403,17 @@ async def index_channel_files(client, message):
     reply = await message.reply_text(f"Indexing files from {start_msg_id} to {end_msg_id} in channel {channel_id}... Duplicates allowed: {dup}")
 
     batch_size = 50
-
+    count = 0
     for batch_start in range(start_msg_id, end_msg_id + 1, batch_size):
         batch_end = min(batch_start + batch_size - 1, end_msg_id)
         ids = list(range(batch_start, batch_end + 1))
-        try:
-            messages = []
-            for msg_id in ids:
-                msg = await safe_api_call(client.get_messages(channel_id, msg_id))
+        messages = []
+        for msg_id in ids:
+            try:
+                msg = await client.get_messages(channel_id, msg_id)
                 messages.append(msg)
-        except Exception as e:
-            await message.reply_text(f"Failed to get messages {batch_start}-{batch_end}: {e}")
-            continue
+            except Exception:
+                continue
         for msg in messages:
             if not msg:
                 continue
@@ -425,7 +424,9 @@ async def index_channel_files(client, message):
                     reply_func=reply.edit_text,
                     duplicate=dup      # Pass the flag here!
                 )
-
+                count += 1
+        await safe_api_call(reply.edit_text(f"🔁 Indexing in progress... {count} files queued so far."))
+    await safe_api_call(reply.edit_text(f"✅ Indexing completed! Total files queued: {count}"))
     invalidate_search_cache()
 
 @bot.on_message(filters.private & filters.command("del") & filters.user(OWNER_ID))

@@ -200,9 +200,9 @@ async def start_handler(client, message):
             keyboard = [buttons[i:i+2] for i in range(0, len(buttons), 2)]
 
             welcome_text = (
-                f"<b>Hey {first_name}! 👋</b>\n\n"
-                f"<b>Type any keyword to search 🔍</b>\n\n"
-                f"<b><i>Joined on {joined_str}</i></b> 🎉"
+                f"<b>Hey {first_name} !</b>\n\n"
+                f"<b>Type any keyword to search</b>\n\n"
+                f"<b>User since {joined_str}</b>"
             )
 
             reply_msg = await safe_api_call(message.reply_text(
@@ -648,9 +648,9 @@ async def stats_command(client, message: Message):
 
         # Compose stats message
         text = (
-            f"👤 <b>Total auth users:</b> {total_auth_users} / {total_users}\n"
-            f"💾 <b>Files size:</b> {human_readable_size(total_storage)}\n"
-            f"📊 <b>Database storage used:</b> {db_storage / (1024 * 1024):.2f} MB\n"
+            f"<b>Total auth users:</b> {total_auth_users} / {total_users}\n"
+            f"<b>Files size:</b> {human_readable_size(total_storage)}\n"
+            f"<b>Database storage used:</b> {db_storage / (1024 * 1024):.2f} MB\n"
         )
 
         if not channel_counts:

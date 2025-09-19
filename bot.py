@@ -251,29 +251,28 @@ async def del_file_handler(client, message):
 async def copy_file_handler(client, message):
     try:
         status_msg = None
-
-        status_msg = await message.reply_text("📥 <b>Please forward the <u>start</u> message to copy.</b>", parse_mode="html")
+        status_msg = await message.reply_text("📥 <b>Please forward the <u>start</u> message to copy.</b>")
         start_msg = await client.listen(message.chat.id, timeout=120)
 
-        await status_msg.edit_text("📤 <b>Now forward the <u>end</u> message to copy.</b>", parse_mode="html")
+        await status_msg.edit_text("📤 <b>Now forward the <u>end</u> message to copy.</b>")
         end_msg = await client.listen(message.chat.id, timeout=120)
 
         if not start_msg.forward_from_chat or not end_msg.forward_from_chat:
-            return await status_msg.edit_text("⚠️ <b>Both messages must be forwarded from a channel.</b>", parse_mode="html")
+            return await status_msg.edit_text("⚠️ <b>Both messages must be forwarded from a channel.</b>")
 
         source_channel_id = start_msg.forward_from_chat.id
         if source_channel_id != end_msg.forward_from_chat.id:
-            return await status_msg.edit_text("⚠️ <b>Start and end messages must be from the same channel.</b>", parse_mode="html")
+            return await status_msg.edit_text("⚠️ <b>Start and end messages must be from the same channel.</b>")
 
-        await status_msg.edit_text("📍 <b>Now forward <u>any message</u> from the destination channel.</b>", parse_mode="html")
+        await status_msg.edit_text("📍 <b>Now forward <u>any message</u> from the destination channel.</b>")
         dest_msg = await client.listen(message.chat.id, timeout=120)
 
         if not dest_msg.forward_from_chat:
-            return await status_msg.edit_text("⚠️ <b>Destination message must be forwarded from a channel.</b>", parse_mode="html")
+            return await status_msg.edit_text("⚠️ <b>Destination message must be forwarded from a channel.</b>")
 
         dest_channel_id = dest_msg.forward_from_chat.id
         if source_channel_id == dest_channel_id:
-            return await status_msg.edit_text("⚠️ <b>Source and destination channels must be different.</b>", parse_mode="html")
+            return await status_msg.edit_text("⚠️ <b>Source and destination channels must be different.</b>")
 
         start_id = min(start_msg.forward_from_message_id, end_msg.forward_from_message_id)
         end_id = max(start_msg.forward_from_message_id, end_msg.forward_from_message_id)
@@ -281,8 +280,7 @@ async def copy_file_handler(client, message):
 
         await status_msg.edit_text(
             f"🔁 <b>Copying messages from ID <code>{start_id}</code> to <code>{end_id}</code>...</b>\n"
-            f"📦 <i>Total messages to check: {total}</i>",
-            parse_mode="html"
+            f"📦 <i>Total messages to check: {total}</i>"
         )
 
         count = 0
@@ -306,8 +304,7 @@ async def copy_file_handler(client, message):
                         chat_id=dest_channel_id,
                         from_chat_id=source_channel_id,
                         message_id=msg_id,
-                        caption=f"<b>{caption}</b>",
-                        parse_mode="html"
+                        caption=f"<b>{caption}</b>"
                     ))
 
                     # Track stats
@@ -325,8 +322,7 @@ async def copy_file_handler(client, message):
                         await safe_api_call(status_msg.edit_text(
                             f"🔁 <b>Copying in progress...</b>\n"
                             f"✅ <b>{count}</b> files copied so far.\n"
-                            f"📂 <i>{idx}/{total} messages checked</i>",
-                            parse_mode="html"
+                            f"📂 <i>{idx}/{total} messages checked</i>"
                         ))
 
                 except Exception as copy_error:
@@ -339,14 +335,13 @@ async def copy_file_handler(client, message):
             f"📦 <b>Total files copied:</b> {count}\n"
             f"📁 <i>Documents:</i> {stats['document']}\n"
             f"🎞️ <i>Videos:</i> {stats['video']}\n"
-            f"🎵 <i>Audios:</i> {stats['audio']}",
-            parse_mode="html"
+            f"🎵 <i>Audios:</i> {stats['audio']}"
         ))
 
     except Exception as e:
         logger.error(f"[copy_file_handler] Error: {e}")
         if status_msg:
-            await status_msg.edit_text("❌ <b>An error occurred during the copy process.</b>", parse_mode="html")
+            await status_msg.edit_text("❌ <b>An error occurred during the copy process.</b>")
 '''
                         if copied_msg:
                             await queue_file_for_processing(

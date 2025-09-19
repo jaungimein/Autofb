@@ -222,7 +222,7 @@ async def channel_file_handler(client, message):
     if message.chat.id not in allowed_channels:
         return
 
-    await queue_file_for_processing(message, reply_func=message.reply_text)
+    await queue_file_for_processing(message)
     await file_queue.join()
     invalidate_search_cache()
 
@@ -253,10 +253,10 @@ async def copy_file_handler(client, message):
         status_msg = None
 
         reply = await message.reply_text("📥 <b>Please forward the <u>start</u> message to copy.</b>")
-        start_msg = await client.listen(message.chat.id, timeout=120)
+        start_msg = await client.listen(OWNER_ID, timeout=120)
 
         await reply.edit_text("📤 <b>Now forward the <u>end</u> message to copy.</b>")
-        end_msg = await client.listen(message.chat.id, timeout=120)
+        end_msg = await client.listen(OWNER_ID, timeout=120)
 
         if not start_msg.forward_from_chat or not end_msg.forward_from_chat:
             return await reply.edit_text("⚠️ <b>Both messages must be forwarded from a channel.</b>")
@@ -266,7 +266,7 @@ async def copy_file_handler(client, message):
             return await reply.edit_text("⚠️ <b>Start and end messages must be from the same channel.</b>")
 
         await reply.edit_text("📍 <b>Now forward <u>any message</u> from the destination channel.</b>")
-        dest_msg = await client.listen(message.chat.id, timeout=120)
+        dest_msg = await client.listen(OWNER_ID, timeout=120)
 
         if not dest_msg.forward_from_chat:
             return await reply.edit_text("⚠️ <b>Destination message must be forwarded from a channel.</b>")
@@ -365,7 +365,7 @@ async def index_channel_files(client, message):
 
     prompt = await safe_api_call(message.reply_text("Please send the **start file link** (Telegram message link, only /c/ links supported):"))
     try:
-        start_msg = await client.listen(message.chat.id, timeout=120)
+        start_msg = await client.listen(OWNER_ID, timeout=120)
     except ListenerTimeout:
         await safe_api_call(prompt.edit_text("⏰ Timeout! You took too long to reply. Please try again."))
         return
@@ -373,7 +373,7 @@ async def index_channel_files(client, message):
 
     prompt2 = await safe_api_call(message.reply_text("Now send the **end file link** (Telegram message link, only /c/ links supported):"))
     try:
-        end_msg = await client.listen(message.chat.id, timeout=120)
+        end_msg = await client.listen(OWNER_ID, timeout=120)
     except ListenerTimeout:
         await safe_api_call(prompt2.edit_text("⏰ Timeout! You took too long to reply. Please try again."))
         return
@@ -403,7 +403,7 @@ async def index_channel_files(client, message):
     reply = await message.reply_text(f"Indexing files from {start_msg_id} to {end_msg_id} in channel {channel_id}... Duplicates allowed: {dup}")
 
     batch_size = 50
-    total_queued = 0
+
     for batch_start in range(start_msg_id, end_msg_id + 1, batch_size):
         batch_end = min(batch_start + batch_size - 1, end_msg_id)
         ids = list(range(batch_start, batch_end + 1))
@@ -425,11 +425,8 @@ async def index_channel_files(client, message):
                     reply_func=reply.edit_text,
                     duplicate=dup      # Pass the flag here!
                 )
-                total_queued += 1
-        invalidate_search_cache()
 
-    await message.reply_text(f"✅ Queued {total_queued} files from channel {channel_id} for processing. Duplicates allowed: {dup}")
-
+    invalidate_search_cache()
 
 @bot.on_message(filters.private & filters.command("del") & filters.user(OWNER_ID))
 async def delete_command(client, message):

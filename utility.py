@@ -472,6 +472,11 @@ async def extract_tmdb_link(tmdb_url):
 file_queue = asyncio.Queue()
 
 async def file_queue_worker(bot):
+    total_processed = 0
+    last_update_time = time.time()
+    start_time = time.time()
+    total_files = file_queue.qsize() 
+
     while True:
         item = await file_queue.get()
         file_info, reply_func, message, duplicate = item
@@ -495,6 +500,18 @@ async def file_queue_worker(bot):
                 continue
             else:   
                 upsert_file_info(file_info)
+                total_processed += 1
+
+                # Every 3 seconds, update progress
+                now = time.time()
+                if reply_func and (now - last_update_time > 5):
+                    await reply_func(
+                        f"🔄 <b>File indexing progress</b>\n"
+                        f"✅ <b>{total_processed}/{total_files}</b> files processed."
+                        # Optionally, show total and time elapsed:
+                        f"\n⏱️ {int(now-start_time)}s elapsed"
+                    )
+                    last_update_time = now
 
                 if duplicate:
                     try:

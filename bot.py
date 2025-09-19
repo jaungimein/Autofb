@@ -284,7 +284,7 @@ async def copy_file_handler(client, message):
         )
 
         count = 0
-        stats = {"document": 0, "video": 0, "audio": 0}
+        failed = 0 
 
         async with copy_lock:
             for idx, msg_id in enumerate(range(start_id, end_id + 1), start=1):
@@ -307,14 +307,6 @@ async def copy_file_handler(client, message):
                         caption=f"<b>{caption}</b>"
                     ))
 
-                    # Track stats
-                    if msg.document:
-                        stats["document"] += 1
-                    elif msg.video:
-                        stats["video"] += 1
-                    elif msg.audio:
-                        stats["audio"] += 1
-
                     count += 1
 
                     # Update progress every 10 messages
@@ -326,16 +318,16 @@ async def copy_file_handler(client, message):
                         ))
 
                 except Exception as copy_error:
+                    failed += 1 
                     logger.warning(f"[copy_file_handler] Failed to copy message {msg_id}: {copy_error}")
                     continue
 
         # Final summary
         await safe_api_call(status_msg.edit_text(
-            f"✅ <b>Copy completed successfully!</b>\n\n"
+            f"✅ <b>Copy completed!</b>\n\n"
             f"📦 <b>Total files copied:</b> {count}\n"
-            f"📁 <i>Documents:</i> {stats['document']}\n"
-            f"🎞️ <i>Videos:</i> {stats['video']}\n"
-            f"🎵 <i>Audios:</i> {stats['audio']}"
+            f"❌ <b>Failed to copy:</b> {failed}\n"
+            f"📂 <i>Total messages checked:</i> {total}"
         ))
 
     except Exception as e:

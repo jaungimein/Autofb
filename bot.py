@@ -251,7 +251,7 @@ async def del_file_handler(client, message):
 async def copy_file_handler(client, message):
     try:
         status_msg = None
-        
+
         status_msg = await message.reply_text("📥 <b>Please forward the <u>start</u> message to copy.</b>", parse_mode="html")
         start_msg = await client.listen(message.chat.id, timeout=120)
 
@@ -345,9 +345,8 @@ async def copy_file_handler(client, message):
 
     except Exception as e:
         logger.error(f"[copy_file_handler] Error: {e}")
-        await status_msg.edit_text("❌ <b>An error occurred during the copy process.</b>", parse_mode="html")
-
-
+        if status_msg:
+            await status_msg.edit_text("❌ <b>An error occurred during the copy process.</b>", parse_mode="html")
 '''
                         if copied_msg:
                             await queue_file_for_processing(

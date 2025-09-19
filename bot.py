@@ -788,6 +788,12 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     channel_name = channel_info.get('channel_name', str(channel_id)) if channel_info else str(channel_id)
 
     if not files:
+        await safe_api_call(callback_query.edit_message_text(
+            f"<b>❌ No result found for {query}</b>\n\n"
+             "Try like Inception | Loki | Loki S01 | Loki S01E01", 
+             parse_mode=enums.ParseMode.HTML,
+             disable_web_page_preview=True
+        ))
         await safe_api_call(bot.send_message(
             LOG_CHANNEL_ID, 
             f"🔎 No result for query:\n<code>{query}</code> in <b>{channel_name}</b>\nUser: {user_link} | <code>{user_id}</code>"

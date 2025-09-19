@@ -251,34 +251,35 @@ async def del_file_handler(client, message):
 async def copy_file_handler(client, message):
     try:
         status_msg = None
-        status_msg = await message.reply_text("📥 <b>Please forward the <u>start</u> message to copy.</b>")
+
+        reply = await message.reply_text("📥 <b>Please forward the <u>start</u> message to copy.</b>")
         start_msg = await client.listen(message.chat.id, timeout=120)
 
-        await status_msg.edit_text("📤 <b>Now forward the <u>end</u> message to copy.</b>")
+        await reply.edit_text("📤 <b>Now forward the <u>end</u> message to copy.</b>")
         end_msg = await client.listen(message.chat.id, timeout=120)
 
         if not start_msg.forward_from_chat or not end_msg.forward_from_chat:
-            return await status_msg.edit_text("⚠️ <b>Both messages must be forwarded from a channel.</b>")
+            return await reply.edit_text("⚠️ <b>Both messages must be forwarded from a channel.</b>")
 
         source_channel_id = start_msg.forward_from_chat.id
         if source_channel_id != end_msg.forward_from_chat.id:
-            return await status_msg.edit_text("⚠️ <b>Start and end messages must be from the same channel.</b>")
+            return await reply.edit_text("⚠️ <b>Start and end messages must be from the same channel.</b>")
 
-        await status_msg.edit_text("📍 <b>Now forward <u>any message</u> from the destination channel.</b>")
+        await reply.edit_text("📍 <b>Now forward <u>any message</u> from the destination channel.</b>")
         dest_msg = await client.listen(message.chat.id, timeout=120)
 
         if not dest_msg.forward_from_chat:
-            return await status_msg.edit_text("⚠️ <b>Destination message must be forwarded from a channel.</b>")
+            return await reply.edit_text("⚠️ <b>Destination message must be forwarded from a channel.</b>")
 
         dest_channel_id = dest_msg.forward_from_chat.id
         if source_channel_id == dest_channel_id:
-            return await status_msg.edit_text("⚠️ <b>Source and destination channels must be different.</b>")
+            return await reply.edit_text("⚠️ <b>Source and destination channels must be different.</b>")
 
         start_id = min(start_msg.forward_from_message_id, end_msg.forward_from_message_id)
         end_id = max(start_msg.forward_from_message_id, end_msg.forward_from_message_id)
         total = end_id - start_id + 1
 
-        await status_msg.edit_text(
+        status_msg= await message.reply_text(
             f"🔁 <b>Copying messages from ID <code>{start_id}</code> to <code>{end_id}</code>...</b>\n"
             f"📦 <i>Total messages to check: {total}</i>"
         )

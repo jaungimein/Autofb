@@ -320,26 +320,26 @@ async def copy_file_handler(client, message):
 
                     # Update progress every 10 messages
                     if idx % 10 == 0 or idx == total:
-                        await status_msg.edit_text(
+                        await safe_api_call(status_msg.edit_text(
                             f"🔁 <b>Copying in progress...</b>\n"
                             f"✅ <b>{count}</b> files copied so far.\n"
                             f"📂 <i>{idx}/{total} messages checked</i>",
                             parse_mode="html"
-                        )
+                        ))
 
                 except Exception as copy_error:
                     logger.warning(f"[copy_file_handler] Failed to copy message {msg_id}: {copy_error}")
                     continue
 
         # Final summary
-        await status_msg.edit_text(
+        await safe_api_call(status_msg.edit_text(
             f"✅ <b>Copy completed successfully!</b>\n\n"
             f"📦 <b>Total files copied:</b> {count}\n"
             f"📁 <i>Documents:</i> {stats['document']}\n"
             f"🎞️ <i>Videos:</i> {stats['video']}\n"
             f"🎵 <i>Audios:</i> {stats['audio']}",
             parse_mode="html"
-        )
+        ))
 
     except Exception as e:
         logger.error(f"[copy_file_handler] Error: {e}")

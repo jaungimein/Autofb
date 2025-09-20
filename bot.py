@@ -301,7 +301,7 @@ async def copy_file_handler(client, message):
                     caption = msg.caption or getattr(media, "file_name", "No Caption")
                     caption = remove_unwanted(caption)
 
-                    await safe_api_call(client.copy_message(
+                    copied_msg = await safe_api_call(client.copy_message(
                         chat_id=dest_channel_id,
                         from_chat_id=source_channel_id,
                         message_id=msg_id,
@@ -309,6 +309,14 @@ async def copy_file_handler(client, message):
                     ))
 
                     count += 1
+
+                    if copied_msg:
+                        await queue_file_for_processing(
+                            copied_msg,
+                            channel_id=dest_channel_id,
+                            reply_func=message.reply_text,
+                            duplicate=True
+                        )
 
                     # Update progress every 10 messages
                     if idx % 10 == 0 or idx == total:
@@ -331,26 +339,13 @@ async def copy_file_handler(client, message):
             f"📂 <i>Total messages checked:</i> {total}"
         ))
 
+        invalidate_search_cache()
+
+
     except Exception as e:
         logger.error(f"[copy_file_handler] Error: {e}")
         if status_msg:
             await status_msg.edit_text("❌ <b>An error occurred during the copy process.</b>")
-'''
-                        if copied_msg:
-                            await queue_file_for_processing(
-                                copied_msg,
-                                channel_id=dest_channel_id,
-                                reply_func=message.reply_text,
-                                duplicate=True
-                            )
-                            invalidate_search_cache()
-                    await asyncio.sleep(1)  # Rate limit
-                except Exception as e:
-                    logger.error(f"Failed to copy message {msg_id}: {e}")
-                    continue  
-        await message.reply_text("✅ Copying and indexing completed.")
-'''
-
 
 @bot.on_message(filters.command("index") & filters.private & filters.user(OWNER_ID))
 async def index_channel_files(client, message):

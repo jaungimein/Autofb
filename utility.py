@@ -416,6 +416,17 @@ def remove_extension(caption):
     except Exception as e:
         logger.error(e)
         return None
+    
+def remove_unwanted(caption):
+    try:
+        # Match and keep everything up to and including the extension
+        match = re.match(r'^(.*?\.(mkv|mp4|webm))', caption, flags=re.IGNORECASE)
+        if match:
+            return match.group(1)
+        return caption  # Return original if no match
+    except Exception as e:
+        logger.error(e)
+        return None
 
 # =========================
 # Async/Bot Utilities

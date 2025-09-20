@@ -26,7 +26,7 @@ from utility import (
     file_queue, extract_tmdb_link, periodic_expiry_cleanup,
     restore_tmdb_photos, build_search_pipeline,
     get_user_link, delete_after_delay,
-    restore_imgbb_photos
+    restore_imgbb_photos, remove_unwanted
     )
 from db import (db, users_col, 
                 tokens_col, 
@@ -299,7 +299,7 @@ async def copy_file_handler(client, message):
                         continue  # Skip non-media messages
 
                     caption = msg.caption or getattr(media, "file_name", "No Caption")
-                    caption = caption if caption else "No Caption"
+                    caption = remove_unwanted(caption)
 
                     await safe_api_call(client.copy_message(
                         chat_id=dest_channel_id,

@@ -719,7 +719,7 @@ async def instant_search_handler(client, message):
         handled = await imgbb_auto_handler(client, message)
         if handled:
             return
-
+        
         query = sanitize_query(message.text)
         query_id = store_query(query)
 
@@ -778,7 +778,6 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     skip = (page - 1) * SEARCH_PAGE_SIZE
     user_link = await get_user_link(callback_query.from_user)
     user_id = callback_query.from_user.id
-
     pipeline = build_search_pipeline(query, [channel_id], skip, SEARCH_PAGE_SIZE)
     result = list(files_col.aggregate(pipeline))
     files = result[0]["results"] if result and result[0]["results"] else []
@@ -790,7 +789,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     if not files:
         await safe_api_call(callback_query.edit_message_text(
             f"<b>❌ No result found for {query}</b>\n\n"
-             "Try like Inception | Loki | Loki S01 | Loki S01E01", 
+             "Format Inception | Loki | Loki S01E01", 
              parse_mode=enums.ParseMode.HTML,
              disable_web_page_preview=True
         ))

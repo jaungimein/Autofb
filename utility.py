@@ -74,10 +74,9 @@ def build_search_pipeline(query, allowed_ids, skip, limit):
     # Create a separate `text` clause for each term
     must_clauses = [
         {
-            "wildcard": {
-                "query": f"*{term}*",
-                "path": "file_name",
-                "allowAnalyzedField": True
+            "text": {
+                "query": term,
+                "path": "file_name"
             }
         }
         for term in terms

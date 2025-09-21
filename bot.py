@@ -992,7 +992,7 @@ async def view_file_callback_handler(client, callback_query: CallbackQuery):
                 if poster_url:
                     await safe_api_call(callback_query.message.reply_photo(
                         photo=poster_url,
-                        caption=f"{info}/n/n{file_name}",
+                        caption=f"{info}\n\n{file_name}",
                         ttl_seconds=60,
                         reply_markup=keyboard
                     ))

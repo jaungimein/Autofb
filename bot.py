@@ -957,21 +957,21 @@ async def view_file_callback_handler(client, callback_query: CallbackQuery):
     if not file_doc:
         await callback_query.answer("❌ File not found!", show_alert=True)
         return
+    
+    await callback_query.answer()
 
     file_name = file_doc.get("file_name", "Unknown file")
     ss_url = file_doc.get("ss_url", None)
 
     results, tmdb_id, type= await get_info_by_name(file_name, channel_id)
     if results:
-        await callback_query.answer()
         reply = await bot.send_photo(chat_id=callback_query.from_user.id,
                              photo=results.get('poster_url'),
                              caption=f"{results.get('message')}\n\n{file_name}")
     elif ss_url:
         reply = await bot.send_photo(chat_id=callback_query.from_user.id,
-                        photo=results.get('poster_url'),
+                        photo=ss_url,
                         caption=f"{results.get('message')}\n\n{file_name}")
-        await callback_query.answer()
     else:
         await callback_query.answer(f"{file_name}", show_alert=True)
     

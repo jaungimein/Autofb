@@ -125,22 +125,105 @@
             searchFiles();
         }
 
+
+
+
+
         function renderResults(results) {
             let html = '';
-            for (let f of results) {
+            for (let i = 0; i < results.length; i++) {
+                let f = results[i];
                 let fileName = f.file_name || '';
                 let fileSize = f.file_size || '';
                 let tgLink = f.telegram_link || '#';
+                let showInfoBtn = f.info_button;
+                let ssUrl = f.ss_url;
                 html += `
         <div class="file-card d-flex flex-column flex-md-row align-items-md-center justify-content-between">
-            <div>
-                <div class="fw-bold file-name" style="word-break: break-all;">${fileName}</div>
+            <div style="flex:1">
+                <div class="fw-bold file-name clickable" style="word-break: break-all; cursor:pointer;" onclick="toggleButtons(${i})">${fileName}</div>
                 <div class="text-secondary small">Size: ${fileSize}</div>
+                <div class="file-actions" id="file-actions-${i}" style="display:none; margin-top:8px;">
+                    <a class="btn file-link-btn me-2" href="${tgLink}" target="_blank" title="Send">
+                        <img src="tg.svg" alt="Send" style="height:24px;vertical-align:middle;" />
+                    </a>
+                    ${showInfoBtn ? `<button class="btn file-link-btn me-2" onclick="showTmdbInfo('${encodeURIComponent(fileName)}')" title="Info"><img src="tmdb.svg" alt="Info" style="height:24px;vertical-align:middle;" /></button>` : ''}
+                    ${ssUrl ? `<button class="btn file-link-btn" onclick="showSsPopup('${encodeURIComponent(ssUrl)}')" title="Screenshot"><img src="ss.svg" alt="SS" style="height:24px;vertical-align:middle;" /></button>` : ''}
+                </div>
             </div>
-            <a class="btn btn-success file-link-btn mt-2 mt-md-0" href="${tgLink}" target="_blank">Send</a>
         </div>`;
             }
             document.getElementById('results').innerHTML = html;
+        }
+
+        function toggleButtons(idx) {
+            // Hide all other file-actions
+            document.querySelectorAll('.file-actions').forEach(el => el.style.display = 'none');
+            let el = document.getElementById('file-actions-' + idx);
+            if (el) el.style.display = (el.style.display === 'none' ? 'block' : 'none');
+        }
+
+
+        async function showTmdbInfo(fileName) {
+            let decodedName = decodeURIComponent(fileName);
+            // Show loading spinner on button
+            let btns = document.querySelectorAll(`button[onclick="showTmdbInfo('${fileName}')"]`);
+            btns.forEach(btn => {
+                btn.disabled = true;
+                btn.innerHTML = `<span class='spinner-border spinner-border-sm me-2'></span>Loading...`;
+            });
+
+            let res = await fetch(`${BASE_URL}/api/tmdb?file_name=${encodeURIComponent(decodedName)}`);
+            let data = await res.json();
+            let msg = data.message || data.error || 'No info found.';
+            let poster = data.poster_url;
+            let trailer = data.trailer_url;
+            let html = `<div style="max-width:400px; max-height:80vh; overflow-y:auto; margin:auto; background:#23272b; border-radius:10px; padding:20px; color:#fff; box-shadow:0 2px 16px #0006; display:flex; flex-direction:column; align-items:center;">
+                <h5 class="mb-3">TMDB Info</h5>
+                ${poster ? `<img src='${poster}' style='width:100%; border-radius:8px; margin-bottom:12px; max-height:350px; object-fit:cover;'/>` : ''}
+                <div style="white-space:pre-line; width:100%;">${msg.replace(/\n/g, '<br>')}</div>
+                ${trailer ? `<a href='${trailer}' target='_blank' class='btn btn-danger mt-3 w-100'>Watch Trailer</a>` : ''}
+                <button class='btn btn-secondary mt-3 w-100' onclick='closeTmdbPopup()'>Close</button>
+            </div>`;
+            showPopup(html);
+
+            // Restore button state
+            btns.forEach(btn => {
+                btn.disabled = false;
+                btn.innerHTML = `<img src="tmdb.svg" alt="Info" style="height:24px;vertical-align:middle;" />`;
+            });
+        }
+
+        function showPopup(content) {
+            let popup = document.createElement('div');
+            popup.id = 'tmdb-popup';
+            popup.style.position = 'fixed';
+            popup.style.top = '0';
+            popup.style.left = '0';
+            popup.style.width = '100vw';
+            popup.style.height = '100vh';
+            popup.style.background = 'rgba(0,0,0,0.7)';
+            popup.style.zIndex = '9999';
+            popup.style.display = 'flex';
+            popup.style.alignItems = 'center';
+            popup.style.justifyContent = 'center';
+            popup.innerHTML = `<div style='width:100%; height:100%; display:flex; align-items:center; justify-content:center;'>${content}</div>`;
+            document.body.appendChild(popup);
+        }
+
+        function showSsPopup(ssUrl) {
+            var decodedUrl = decodeURIComponent(ssUrl);
+            var html = "<div style='max-width:90vw; max-height:90vh; margin:auto; background:#23272b; border-radius:10px; padding:10px; color:#fff; box-shadow:0 2px 16px #0006; display:flex; flex-direction:column; align-items:center;'>" +
+                "<h5 class='mb-3'>Screenshot</h5>" +
+                "<img src='" + decodedUrl + "' style='width:100%; max-width:600px; height:auto; border-radius:8px; margin-bottom:12px; object-fit:contain;' />" +
+                "<button class='btn btn-secondary mt-3 w-100' onclick='closeTmdbPopup()'>Close</button>" +
+                "</div>";
+            showPopup(html);
+        }
+
+        function closeTmdbPopup() {
+            let popup = document.getElementById('tmdb-popup');
+            if (popup) popup.remove();
         }
 
         document.getElementById('search').addEventListener('input', function () {
@@ -150,6 +233,8 @@
                 searchFiles();
             }, 250);
         });
+
+
         loadChannels();
     </script>
     <div id="results"></div>

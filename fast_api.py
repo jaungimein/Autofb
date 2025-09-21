@@ -53,7 +53,7 @@ async def search_files(
             del search_api_cache[cache_key]
     # Not cached or expired
     if q.strip():
-        pipeline = build_files_pipeline(q, [channel_id], 0, 1000)
+        pipeline = build_files_pipeline(q, channel_id, 0, 1000)
         results = list(files_col.aggregate(pipeline))
         files = results[0]["results"] if results and results[0].get("results") else []
         total = len(files)

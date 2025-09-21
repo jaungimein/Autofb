@@ -968,7 +968,7 @@ async def view_file_callback_handler(client, callback_query: CallbackQuery):
             chat_id=user_id, 
             photo=ss_url, 
             caption=f"<b>{file_name}</b>",
-            ttl_seconds=30
+            ttl_seconds=30,
             protect_content=True
             ))
         await callback_query.answer()

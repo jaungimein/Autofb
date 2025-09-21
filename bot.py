@@ -952,7 +952,6 @@ async def send_file_callback(client, callback_query: CallbackQuery):
 async def view_file_callback_handler(client, callback_query: CallbackQuery):
     channel_id = int(callback_query.matches[0].group(1))
     message_id = int(callback_query.matches[0].group(2))
-    user_id = callback_query.from_user.id
 
     # Fetch file from DB
     file_doc = files_col.find_one({"channel_id": channel_id, "message_id": message_id})
@@ -964,13 +963,11 @@ async def view_file_callback_handler(client, callback_query: CallbackQuery):
     ss_url = file_doc.get("ss_url")
 
     if ss_url:
-        await safe_api_call(client.send_photo(
-            chat_id=user_id, 
+        await safe_api_call(callback_query.message.reply_photo(
             photo=ss_url, 
             caption=f"<b>{file_name}</b>",
-            ttl_seconds=30,
-            protect_content=True
-            ))
+            ttl_seconds=60,
+        ))
         await callback_query.answer()
         return
     else:
@@ -993,10 +990,9 @@ async def view_file_callback_handler(client, callback_query: CallbackQuery):
                 keyboard = InlineKeyboardMarkup(
                     [[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
                 if poster_url:
-                    await safe_api_call(client.send_photo(
-                        chat_id=user_id,
+                    await safe_api_call(callback_query.message.reply_photo(
                         photo=poster_url,
-                        caption=info,
+                        caption=f"{info}/n/n{file_name}",
                         ttl_seconds=60,
                         reply_markup=keyboard
                     ))

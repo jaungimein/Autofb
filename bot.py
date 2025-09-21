@@ -965,13 +965,20 @@ async def view_file_callback_handler(client, callback_query: CallbackQuery):
     await callback_query.answer()
     results, tmdb_id, type= await get_info_by_name(file_name, channel_id)
     if results:
+        trailer = results.get('trailer_url')
+        keyboard = InlineKeyboardMarkup(
+            [[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
+
         reply = await bot.send_photo(chat_id=callback_query.from_user.id,
                              photo=results.get('poster_url'),
-                             caption=f"{results.get('message')}\n\n{file_name}")
+                             caption=f"{results.get('message')}\n\n{file_name}",
+                             reply_markup=keyboard
+                             )
     elif ss_url:
         reply = await bot.send_photo(chat_id=callback_query.from_user.id,
                         photo=ss_url,
-                        caption=f"{results.get('message')}\n\n{file_name}")
+                        caption=f"<b>{file_name}</b>",
+                        ttl_seconds=60)
     else:
         await callback_query.answer(f"{file_name}", show_alert=True)
     

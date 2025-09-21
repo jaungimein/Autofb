@@ -961,7 +961,7 @@ async def view_file_callback_handler(client, callback_query: CallbackQuery):
     file_name = file_doc.get("file_name", "Unknown file")
     ss_url = file_doc.get("ss_url", None)
 
-    results = await get_info_by_name(file_name, channel_id)
+    results, tmdb_id, type= await get_info_by_name(file_name, channel_id)
     if results:
         await callback_query.answer()
         reply = await bot.send_photo(chat_id=callback_query.from_user.id,

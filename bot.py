@@ -961,6 +961,8 @@ async def view_file_callback_handler(client, callback_query: CallbackQuery):
     file_name = file_doc.get("file_name", "Unknown file")
     ss_url = file_doc.get("ss_url", None)
     try:
+        await callback_query.answer("⏳ Fetching info...")
+
         results, tmdb_id, type= await get_info_by_name(file_name, channel_id)
         if results:
             trailer = results.get('trailer_url')
@@ -978,19 +980,14 @@ async def view_file_callback_handler(client, callback_query: CallbackQuery):
                             protect_content=True
                             )
         else:
-            await callback_query.answer(f"{file_name}", show_alert=True)
-
-        await callback_query.answer()
+            await bot.send_message(chat_id=callback_query.from_user.id, text=f'{file_name}', protect_content=True)
         
         if reply:
                 bot.loop.create_task(delete_after_delay(reply))
     except Exception as e:
         logger.error(f"Error in view_file_callback_handler {e}")
         await callback_query.answer()
-        
-
-
-    
+           
 @bot.on_callback_query(filters.regex(r"^noop$"))
 async def noop_callback_handler(client, callback_query: CallbackQuery):
     await callback_query.answer()  # Instantly respond, does nothing

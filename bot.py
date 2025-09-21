@@ -8,7 +8,6 @@ from bson import ObjectId
 import os
 import re
 import sys
-import PTN
 from datetime import datetime, timezone
 from collections import defaultdict
 
@@ -28,7 +27,7 @@ from utility import (
     restore_tmdb_photos, build_files_pipeline,
     get_user_link, delete_after_delay,
     restore_imgbb_photos, remove_unwanted,
-    remove_redandent
+    get_info_by_name
     )
 from db import (db, users_col, 
                 tokens_col, 
@@ -44,7 +43,6 @@ import logging
 from pyrogram.types import CallbackQuery
 import base64
 from urllib.parse import unquote_plus
-from tmdb import get_movie_id, get_tv_id, get_info
 from query_helper import store_query, get_query_by_id, start_query_id_cleanup_thread
 # =========================
 # Constants & Globals
@@ -952,7 +950,7 @@ async def send_file_callback(client, callback_query: CallbackQuery):
 async def view_file_callback_handler(client, callback_query: CallbackQuery):
     channel_id = int(callback_query.matches[0].group(1))
     message_id = int(callback_query.matches[0].group(2))
-    user_id = callback_query.from_user.id
+    reply = None
 
     # Fetch file from DB
     file_doc = files_col.find_one({"channel_id": channel_id, "message_id": message_id})
@@ -961,54 +959,29 @@ async def view_file_callback_handler(client, callback_query: CallbackQuery):
         return
 
     file_name = file_doc.get("file_name", "Unknown file")
-    ss_url = file_doc.get("ss_url")
+    ss_url = file_doc.get("ss_url", None)
 
-    if ss_url:
-        await safe_api_call(client.send_photo(
-            chat_id=user_id, 
-            photo=ss_url, 
-            caption=f"<b>{file_name}</b>",
-            ttl_seconds=60,
-            ))
+    results = await get_info_by_name(file_name, channel_id)
+    if results:
         await callback_query.answer()
-        return
+        reply = await bot.send_photo(chat_id=callback_query.from_user.id,
+                             photo=results.get('poster_url'),
+                             caption=f"{results.get('message')}\n\n{file_name}")
+    elif ss_url:
+        reply = await bot.send_photo(chat_id=callback_query.from_user.id,
+                        photo=results.get('poster_url'),
+                        caption=f"{results.get('message')}\n\n{file_name}")
+        await callback_query.answer()
     else:
-        if str(channel_id) in TMDB_CHANNEL_ID:
-            title = remove_redandent(file_name)
-            parsed_data = PTN.parse(title)
-            title = parsed_data.get("title", "").replace("_", " ").replace("-", " ").replace(":", " ")
-            title = ' '.join(title.split())
-            year = parsed_data.get("year")
-            season = parsed_data.get("season")
-            if season:
-                result = await get_tv_id(title, year)
-            else:
-                result = await get_movie_id(title, year)
-                tmdb_id, tmdb_type = result['id'], result['media_type']                        
-                results = await get_info(tmdb_type, tmdb_id)
-                poster_url = results.get('poster_url')
-                trailer = results.get('trailer_url')
-                info = results.get('message')
-                keyboard = InlineKeyboardMarkup(
-                    [[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
-                if poster_url:
-                    await safe_api_call(client.send_photo(
-                        chat_id=user_id,
-                        photo=poster_url,
-                        caption=f"{info}\n\n{file_name}",
-                        ttl_seconds=60,
-                        reply_markup=keyboard
-                    ))
-                    await callback_query.answer()
-                    return
-                else:
-                    await callback_query.answer(f"{file_name}", show_alert=True)
-                    return
-        else:
-            await callback_query.answer(f"{file_name}", show_alert=True)
-            return
-            
+        await callback_query.answer(f"{file_name}", show_alert=True)
+    
+    if reply:
+            bot.loop.create_task(delete_after_delay(reply))
+    
+        
 
+
+    
 @bot.on_callback_query(filters.regex(r"^noop$"))
 async def noop_callback_handler(client, callback_query: CallbackQuery):
     await callback_query.answer()  # Instantly respond, does nothing

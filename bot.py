@@ -131,7 +131,7 @@ async def imgbb_auto_handler(client, message):
 # Bot Command Handlers
 # =========================
 
-@bot.on_message(filters.command("start"))
+@bot.on_message(filters.command("start") & filters.private)
 async def start_handler(client, message):
     """
     Handles the /start command.
@@ -235,7 +235,7 @@ async def start_handler(client, message):
                     InlineKeyboardButton(name, callback_data=f"gen_invite:{chan_id}")
                         for name, chan_id in UPDATE_CHANNELS.items()
                         ]
-            buttons.append(InlineKeyboardButton("🗂️ Browse", url="browse:init"))
+            buttons.append(InlineKeyboardButton("🗂️ Browse", callback_data="browse:init"))
 
             keyboard = [buttons[i:i+2] for i in range(0, len(buttons)-1, 2)] + [[buttons[-1]]]
 

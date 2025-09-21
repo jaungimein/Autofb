@@ -959,34 +959,10 @@ async def view_file_callback_handler(client, callback_query: CallbackQuery):
         return
     
     file_name = file_doc.get("file_name", "Unknown file")
-    ss_url = file_doc.get("ss_url", None)
-    try:
-        await callback_query.answer("⏳ Fetching info...")
+    
+    await callback_query.answer(f"{file_name}", show_alert=True)
 
-        results, tmdb_id, type= await get_info_by_name(file_name, channel_id)
-        if results:
-            trailer = results.get('trailer_url')
-            keyboard = InlineKeyboardMarkup(
-                [[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
 
-            reply = await bot.send_photo(chat_id=callback_query.from_user.id,
-                                photo=results.get('poster_url'),
-                                caption=f"{results.get('message')}\n\n{file_name}",
-                                reply_markup=keyboard
-                                )
-        elif ss_url:
-            reply = await bot.send_message(chat_id=callback_query.from_user.id,
-                            text=f'<a href="{ss_url}">{file_name}</a>',
-                            protect_content=True
-                            )
-        else:
-            await bot.send_message(chat_id=callback_query.from_user.id, text=f'{file_name}', protect_content=True)
-        
-        if reply:
-                bot.loop.create_task(delete_after_delay(reply))
-    except Exception as e:
-        logger.error(f"Error in view_file_callback_handler {e}")
-        await callback_query.answer()
            
 @bot.on_callback_query(filters.regex(r"^noop$"))
 async def noop_callback_handler(client, callback_query: CallbackQuery):

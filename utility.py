@@ -481,7 +481,7 @@ def render_files_results(files, channel_name, query=None, page=1, total_pages=1,
     else:
         text = f"<b>📂 Files in {channel_name}</b>"
     if not files:
-        text += f"<b>❌ No result found</b>\n\n<b>Format Inception | Loki | Loki S01E01</b>"
+        text = f"<b>❌ No result found for {query}</b>\n\n<b>Format Inception | Loki | Loki S01E01</b>"
         return text, None 
     buttons = []
     for f in files:

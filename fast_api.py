@@ -24,8 +24,9 @@ api.add_middleware(
 @api.get("/")
 async def root():
     """Greet users on root route."""
-    return JSONResponse({"message": "👋 Hello! Welcome to the Sharing Bot"})
+    return JSONResponse({"message": "👋 Hello! Welcome"})
 
+'''
 @api.get("/api/channels", response_class=JSONResponse)
 async def get_channels():
     channels = list(allowed_channels_col.find({}, {"_id": 0, "channel_id": 1, "channel_name": 1}))
@@ -95,5 +96,5 @@ async def tmdb_info(file_name: str = Query(..., description="File name to search
     tmdb_id, tmdb_type = result['id'], result['media_type']
     info = await get_info(tmdb_type, tmdb_id)
     return {"message": info.get("message"), "poster_url": info.get("poster_url"), "trailer_url": info.get("trailer_url")}
-
+'''
 

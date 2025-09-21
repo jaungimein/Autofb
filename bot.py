@@ -8,6 +8,7 @@ from bson import ObjectId
 import os
 import re
 import sys
+import PTN
 from datetime import datetime, timezone
 from collections import defaultdict
 
@@ -26,7 +27,8 @@ from utility import (
     file_queue, extract_tmdb_link, periodic_expiry_cleanup,
     restore_tmdb_photos, build_files_pipeline,
     get_user_link, delete_after_delay,
-    restore_imgbb_photos, remove_unwanted
+    restore_imgbb_photos, remove_unwanted,
+    remove_redandent
     )
 from db import (db, users_col, 
                 tokens_col, 
@@ -42,6 +44,7 @@ import logging
 from pyrogram.types import CallbackQuery
 import base64
 from urllib.parse import unquote_plus
+from tmdb import get_movie_id, get_tv_id, get_info
 from query_helper import store_query, get_query_by_id, start_query_id_cleanup_thread
 # =========================
 # Constants & Globals
@@ -957,11 +960,54 @@ async def view_file_callback_handler(client, callback_query: CallbackQuery):
         return
 
     file_name = file_doc.get("file_name", "Unknown file")
+    ss_url = file_doc.get("ss_url")
 
-    # Show as a toast (non-blocking notification)
-    await callback_query.answer(file_name, show_alert=True)
+    if ss_url:
+        await safe_api_call(callback_query.edit_message_media(
+            media=enums.InputMediaPhoto(
+                media=ss_url,
+                caption=f"<b>{file_name}</b>",
+                parse_mode=enums.ParseMode.HTML
+            )
+        ))
+        await callback_query.answer()
+        return
+    else:
+        if str(channel_id) in TMDB_CHANNEL_ID:
+            title = remove_redandent(file_name)
+            parsed_data = PTN.parse(title)
+            title = parsed_data.get("title", "").replace("_", " ").replace("-", " ").replace(":", " ")
+            title = ' '.join(title.split())
+            year = parsed_data.get("year")
+            season = parsed_data.get("season")
+            if season:
+                result = await get_tv_id(title, year)
+            else:
+                result = await get_movie_id(title, year)
+                tmdb_id, tmdb_type = result['id'], result['media_type']                        
+                results = await get_info(tmdb_type, tmdb_id)
+                poster_url = results.get('poster_url')
+                info = results.get('message')
+                if poster_url:
+                    await safe_api_call(
+                        callback_query.edit_message_media(
+                            media=enums.InputMediaPhoto(
+                                media=poster_url,
+                                caption=info,
+                                parse_mode=enums.ParseMode.HTML
+                            )
+                        )
+                    )
+                    await callback_query.answer()
+                    return
+                else:
+                    await callback_query.answer(f"{file_name}", show_alert=True)
+                    return
+        else:
+            await callback_query.answer(f"{file_name}", show_alert=True)
+            return
+            
 
-    
 @bot.on_callback_query(filters.regex(r"^noop$"))
 async def noop_callback_handler(client, callback_query: CallbackQuery):
     await callback_query.answer()  # Instantly respond, does nothing

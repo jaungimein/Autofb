@@ -950,40 +950,29 @@ async def send_file_callback(client, callback_query: CallbackQuery):
 async def view_file_callback_handler(client, callback_query: CallbackQuery):
     channel_id = int(callback_query.matches[0].group(1))
     message_id = int(callback_query.matches[0].group(2))
-    reply = None
-
+    
     # Fetch file from DB
     file_doc = files_col.find_one({"channel_id": channel_id, "message_id": message_id})
     if not file_doc:
         await callback_query.answer("❌ File not found!", show_alert=True)
         return
     
-    await callback_query.answer()
-
     file_name = file_doc.get("file_name", "Unknown file")
     ss_url = file_doc.get("ss_url", None)
     await callback_query.answer()
     results, tmdb_id, type= await get_info_by_name(file_name, channel_id)
     if results:
-        trailer = results.get('trailer_url')
-        keyboard = InlineKeyboardMarkup(
-            [[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
+        trailer = results.get('trailer_url', "")
+        await callback_query.answer(f"{results.get('message')}\n\n{trailer}", show_alert=True)
+        return
 
-        reply = await bot.send_photo(chat_id=callback_query.from_user.id,
-                             photo=results.get('poster_url'),
-                             caption=f"{results.get('message')}\n\n{file_name}",
-                             reply_markup=keyboard
-                             )
     elif ss_url:
-        reply = await bot.send_photo(chat_id=callback_query.from_user.id,
-                        photo=ss_url,
-                        caption=f"<b>{file_name}</b>",
-                        ttl_seconds=60)
+         text = f'<a href="{ss_url}">{file_name}</a>'
+         await callback_query.answer(text, show_alert=True)
+         return
     else:
-        await callback_query.answer(f"{file_name}", show_alert=True)
-    
-    if reply:
-            bot.loop.create_task(delete_after_delay(reply))
+        await callback_query.answer(f"<b>{file_name}</b>", show_alert=True)
+        return
     
         
 

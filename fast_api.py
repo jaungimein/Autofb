@@ -7,7 +7,7 @@ from config import MY_DOMAIN, BOT_USERNAME, TMDB_CHANNEL_ID
 from db import allowed_channels_col, files_col
 from tmdb import get_movie_id, get_tv_id, get_info
 from utility import (get_cache_key, search_api_cache, CACHE_TTL, 
-                     build_search_pipeline, remove_redandent,
+                     build_files_pipeline, remove_redandent,
                      generate_telegram_link, human_readable_size)
 
 
@@ -53,7 +53,7 @@ async def search_files(
             del search_api_cache[cache_key]
     # Not cached or expired
     if q.strip():
-        pipeline = build_search_pipeline(q, [channel_id], 0, 1000)
+        pipeline = build_files_pipeline(q, [channel_id], 0, 1000)
         results = list(files_col.aggregate(pipeline))
         files = results[0]["results"] if results and results[0].get("results") else []
         total = len(files)

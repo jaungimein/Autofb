@@ -988,13 +988,17 @@ async def view_file_callback_handler(client, callback_query: CallbackQuery):
                 tmdb_id, tmdb_type = result['id'], result['media_type']                        
                 results = await get_info(tmdb_type, tmdb_id)
                 poster_url = results.get('poster_url')
+                trailer = results.get('trailer_url')
                 info = results.get('message')
+                keyboard = InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
                 if poster_url:
                     await safe_api_call(client.send_photo(
                         chat_id=user_id,
                         photo=poster_url,
                         caption=info,
-                        ttl_seconds=60
+                        ttl_seconds=60,
+                        reply_markup=keyboard
                     ))
                     await callback_query.answer()
                     return

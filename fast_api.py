@@ -6,8 +6,7 @@ from fastapi.responses import JSONResponse
 from config import MY_DOMAIN, BOT_USERNAME, TMDB_CHANNEL_ID
 from db import allowed_channels_col, files_col
 from tmdb import get_movie_id, get_tv_id, get_info
-from utility import (get_cache_key, search_api_cache, CACHE_TTL, 
-                     build_files_pipeline, remove_redandent,
+from utility import (get_cache_key, search_api_cache, CACHE_TTL, remove_redandent,
                      generate_telegram_link, human_readable_size)
 
 

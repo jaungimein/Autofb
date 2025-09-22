@@ -21,7 +21,7 @@ from utility import (
     add_user, is_token_valid, authorize_user, is_user_authorized,
     generate_token, shorten_url, get_token_link, extract_channel_and_msg_id,
     safe_api_call, get_allowed_channels, invalidate_search_cache,
-    auto_delete_message, human_readable_size, render_files_results,
+    auto_delete_message, human_readable_size,
     queue_file_for_processing, file_queue_worker,
     file_queue, extract_tmdb_link, periodic_expiry_cleanup,
     restore_tmdb_photos, build_search_pipeline,

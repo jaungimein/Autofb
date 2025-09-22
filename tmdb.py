@@ -54,7 +54,7 @@ def format_tmdb_info(tmdb_type, movie_id, data):
         else:
             rating_str = None
 
-        message = f"<b>🎬 Title:</b> <code>{title}</code>\n"
+        message = f"<b>🎬 Title:</b> {title}\n"
         message += f"<b>📆 Release Date:</b> {release_date}\n" if release_date else ""
         message += f"<b>⭐ Rating:</b> {rating_str} / 10\n" if rating_str else ""
         message += f"<b>⏳️ Duration:</b> {runtime}\n" if runtime else ""
@@ -86,7 +86,7 @@ def format_tmdb_info(tmdb_type, movie_id, data):
         else:
             rating_str = None
 
-        message = f"<b>📺 Title:</b> <code>{title}</code>\n"
+        message = f"<b>📺 Title:</b> {title}\n"
         message += f"<b>📅 Release Date:</b> {release_date}\n" if release_date else ""
         message += f"<b>📺 Seasons:</b> {data.get('number_of_seasons', '')}\n" if data.get('number_of_seasons') else ""
         message += f"<b>📺 Episodes:</b> {data.get('number_of_episodes', '')}\n" if data.get('number_of_episodes') else ""

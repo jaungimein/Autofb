@@ -836,7 +836,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
             LOG_CHANNEL_ID, 
             f"🔎 No result for query:\n<code>{query}</code> in <b>{channel_name}</b>\nUser: {user_link} | <code>{user_id}</code>"
         ))
-        await callback_query.answer(f"No files found:\n{query}\n\nSearch Format:\nInception | Loki | Loki S01E01", show_alert=True)
+        await callback_query.answer(f"No result found 🚫\n\nSearch Format:\nInception | Loki | Loki S01E01", show_alert=True)
         return
 
     total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE
@@ -905,9 +905,9 @@ async def send_file_callback(client, callback_query: CallbackQuery):
             reply = await safe_api_call(callback_query.edit_message_text(
                 text = (
                     "📺 Watch a quick ad ⏳ to unlock \n\n"
-                    "This is done to protect the files 📂\n"
-                    "and manage the server costs 💰\n\n"
-                    "✅ Then enjoy full access for the day!"
+                    "This is done to protect 🤖\n"
+                    "and manage the server 💰\n\n"
+                    "✅ Enjoy full access for the day!"
                 ),
                 reply_markup=InlineKeyboardMarkup(
                     [[InlineKeyboardButton("🔓 Unlock", url=short_link)]]

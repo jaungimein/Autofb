@@ -630,7 +630,7 @@ async def broadcast_handler(client, message: Message):
                 msg = message.reply_to_message
                 if msg.forward_from_chat:
                      await safe_api_call(msg.copy(chat_id=user["user_id"],
-                                                  caption=f"{msg.caption.html}\n\n✅ Now Available !",
+                                                  caption=f"{msg.caption.html}\n\n✅ <b>Now Available!</b>",
                                                   reply_markup=msg.reply_markup
                                         ))
                 else:

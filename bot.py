@@ -244,10 +244,9 @@ async def start_handler(client, message):
             keyboard = [buttons[i:i+2] for i in range(0, len(buttons)-1, 2)]
 
             welcome_text = (
-                f"<b>Hey {first_name} !</b>\n\n"
-                f"<b>Type any movie or show title</b>\n"
-                f"<b>Format: Inception | Loki | Loki S01E01</b>\n\n"
-                f"<b>User since {joined_str}</b>"
+                f"<b>Hey {first_name} 👋</b>\n\n"
+                f"<b>Type any movie|show title 🔎</b>\n\n"
+                f"<b>👤 User since {joined_str}</b>"
             )
 
             reply_msg = await safe_api_call(message.reply_text(
@@ -837,7 +836,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
             LOG_CHANNEL_ID, 
             f"🔎 No result for query:\n<code>{query}</code> in <b>{channel_name}</b>\nUser: {user_link} | <code>{user_id}</code>"
         ))
-        await callback_query.answer()
+        await callback_query.answer(f"No files found for {query}\nSearch Format: Inception | Loki | Loki S01E01", show_alert=True)
         return
 
     total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE

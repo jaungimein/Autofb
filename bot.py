@@ -27,7 +27,6 @@ from utility import (
     restore_tmdb_photos, build_files_pipeline,
     get_user_link, delete_after_delay,
     restore_imgbb_photos, remove_unwanted,
-    get_info_by_name
     )
 from db import (db, users_col, 
                 tokens_col, 

@@ -594,10 +594,21 @@ async def file_queue_worker(bot):
                             os.remove(audio_path)
                             os.remove(thumb_path)
                         try:
-                            results, tmdb_id, tmdb_type = await get_info_by_name(file_info["file_name"])
-                            if results:
+                            if str(file_info["channel_id"]) in TMDB_CHANNEL_ID:
+                                title = remove_redandent(file_info["file_name"])
+                                parsed_data = PTN.parse(title)
+                                title = parsed_data.get("title", "").replace("_", " ").replace("-", " ").replace(":", " ")
+                                title = ' '.join(title.split())
+                                year = parsed_data.get("year")
+                                season = parsed_data.get("season")
+                                if season:
+                                    result = await get_tv_id(title, year)
+                                else:
+                                    result = await get_movie_id(title, year)
+                                tmdb_id, tmdb_type = result['id'], result['media_type']                        
                                 exists = tmdb_col.find_one({"tmdb_id": tmdb_id, "tmdb_type": tmdb_type})
                                 if not exists:
+                                    results = await get_info(tmdb_type, tmdb_id)
                                     poster_url = results.get('poster_url')
                                     trailer = results.get('trailer_url')
                                     info = results.get('message')
@@ -616,7 +627,7 @@ async def file_queue_worker(bot):
                                         )                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                                         upsert_tmdb_info(tmdb_id, tmdb_type)
                         except Exception as e:
-                            logger.info(f"Error(s): {e}")    
+                            logger.info(f"TMDB Info not found: {title}")    
 
                     except Exception as e:
                         logger.info(f"Error: {e}")
@@ -722,24 +733,3 @@ async def get_audio_thumbnail(audio_path, output_dir="downloads"):
             return thumbnail_path
     
     return None
-
-async def get_info_by_name(file_name, channel_id):
-    try:
-        if str(channel_id) in TMDB_CHANNEL_ID:
-            title = remove_redandent(file_name)
-            parsed_data = PTN.parse(title)
-            title = parsed_data.get("title", "").replace("_", " ").replace("-", " ").replace(":", " ")
-            title = ' '.join(title.split())
-            year = parsed_data.get("year")
-            season = parsed_data.get("season")
-            if season:
-                result = await get_tv_id(title, year)
-            else:
-                result = await get_movie_id(title, year)
-            tmdb_id, tmdb_type = result['id'], result['media_type']                        
-            results = await get_info(tmdb_type, tmdb_id)
-            return results, tmdb_id, tmdb_type
-        return None, None, None
-    except Exception as e:
-        logger.error(f'TMDB Info not found: {file_name}')
-    return None, None, None

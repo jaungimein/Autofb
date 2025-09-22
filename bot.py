@@ -821,8 +821,11 @@ async def browse_init_handler(client, callback_query: CallbackQuery):
         short_link = shorten_url(get_token_link(token_id, BOT_USERNAME))
         reply = await safe_api_call(callback_query.edit_message_text(
             text = (
-                "🚫 <b>Access denied!</b>"
-            ),
+                    "📺 Watch a quick ad ⏳ to unlock \n\n"
+                    "This is done to protect the files 📂\n"
+                    "from bots & manage server costs 💰\n\n"
+                    "✅ Then enjoy full access for the day!"
+                ),
             reply_markup=InlineKeyboardMarkup(
                 [[InlineKeyboardButton("🔓 Unlock", url=short_link)]]
             )
@@ -915,7 +918,10 @@ async def send_file_callback(client, callback_query: CallbackQuery):
             short_link = shorten_url(get_token_link(token_id, BOT_USERNAME))
             reply = await safe_api_call(callback_query.edit_message_text(
                 text = (
-                    "🚫 <b>Access denied!</b>"
+                    "📺 Watch a quick ad ⏳ to unlock \n\n"
+                    "This is done to protect the files 📂\n"
+                    "and manage the server costs 💰\n\n"
+                    "✅ Then enjoy full access for the day!"
                 ),
                 reply_markup=InlineKeyboardMarkup(
                     [[InlineKeyboardButton("🔓 Unlock", url=short_link)]]

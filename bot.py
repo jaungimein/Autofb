@@ -628,7 +628,7 @@ async def broadcast_handler(client, message: Message):
              try:
                 await asyncio.sleep(1)  # Rate limit                           
                 msg = message.reply_to_message
-                if message.forward_from_chat:
+                if msg.forward_from_chat:
                      await safe_api_call(msg.copy(chat_id=user["user_id"],
                                                   caption=f"{msg.caption.html}\n\n✅ Now Available !",
                                                   reply_markup=msg.reply_markup

@@ -112,7 +112,7 @@ async def imgbb_auto_handler(client, message):
                 await bot.send_photo(
                     UPDATE_CHANNEL_ID3,
                     pic.url,
-                    caption=f"<code>{caption}</code>"
+                    caption=f"<b>{caption}</b>"
                 )
                 await safe_api_call(message.delete())
             except Exception as e:

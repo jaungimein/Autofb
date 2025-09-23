@@ -241,7 +241,7 @@ async def start_handler(client, message):
                         for name, chan_id in UPDATE_CHANNELS.items()
                         ]
 
-            keyboard = [buttons[i:i+2] for i in range(0, len(buttons)-1, 2)]
+            keyboard = [buttons[i:i+2] for i in range(0, len(buttons), 2)]
 
             welcome_text = (
                 f"<b>Hey {first_name} 👋</b>\n\n"
@@ -842,7 +842,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
                    for name, chan_id in UPDATE_CHANNELS.items()
                   ]
 
-        keyboard = [buttons[i:i+2] for i in range(0, len(buttons)-1, 2)]
+        keyboard = [buttons[i:i+2] for i in range(0, len(buttons), 2)]
 
         await callback_query.edit_message_text(text, 
                                                reply_markup=InlineKeyboardMarkup(keyboard)

@@ -834,7 +834,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     if not files:
         await callback_query.answer("Eg: Inception | Loki | Loki S01E01", show_alert=True)
         text = (f"Title: {query}\nCateogry: {channel_name}\n"
-                f"No Result Found 🚫\n"
+                f"No Result Found 🚫 Check Spelling ✍\n"
                 f"Join Updates For Title Or Request One"
         )
         buttons = [

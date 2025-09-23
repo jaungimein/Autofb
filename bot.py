@@ -832,10 +832,10 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     channel_name = channel_info.get('channel_name', str(channel_id)) if channel_info else str(channel_id)
 
     if not files:
+        await callback_query.answer("Eg: Inception | Loki | Loki S01E01", show_alert=True)
         text = (f"Title: {query}\nCateogry: {channel_name}\n"
-                f"No result found 🚫\n"
-                f"Join Updates for Title"
-                f"Or Request one"
+                f"No Result Found 🚫\n"
+                f"Join Updates For Title Or Request One"
         )
         buttons = [
                    InlineKeyboardButton(name, callback_data=f"gen_invite:{chan_id}")
@@ -847,7 +847,6 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
         await callback_query.edit_message_text(text, 
                                                reply_markup=InlineKeyboardMarkup(keyboard)
         )
-        await callback_query.answer("Search Eg: Inception | Loki | Loki S01E01", show_alert=True)
         return
 
     total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE

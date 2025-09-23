@@ -836,7 +836,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
             LOG_CHANNEL_ID, 
             f"🔎 No result for query:\n<code>{query}</code> in <b>{channel_name}</b>\nUser: {user_link} | <code>{user_id}</code>"
         ))
-        await callback_query.answer(f"Title: {query} 🔎\nCateogry: {channel_name}\nNo result found 🚫\nIf title is correct you will be notified soon 🔔\nTo see 👀 available title join our Updates channel 🎉\n\nSearch Example:\nInception | Loki | Loki S01E01", show_alert=True)
+        await callback_query.answer(f"No result found 🚫\nYour request's received 📨\nYou will be notified soon stay tuned! 🔔\nTo 👀 Available <b>Title</b> join our Updates 🎉\n\n🔎 Eg:\nInception | Loki | Loki S01E01", show_alert=True)
         return
 
     total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE

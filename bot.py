@@ -1017,12 +1017,12 @@ async def generate_and_send_invite(client, callback_query: CallbackQuery):
 async def chatop_handler(client, message: Message):
     """
     Usage:
-      /chatop send <chat_id> (reply to a message to send)
-      /chatop del <chat_id> <message_id>
-    """
-    args = message.text.split(maxsplit=3)
+      /chatop send <chat_id> [reply_to_message_id] (reply to a message to send)
+      /chatop del <chat_id> <message_id>
+    """
+    args = message.text.split(maxsplit=4)
     if len(args) < 3:
-        await message.reply_text("Usage:\n/chatop send <chat_id> (reply to a message)\n/chatop del <chat_id> <message_id>")
+        await message.reply_text("Usage:\n/chatop send <chat_id> [reply_to_message_id] (reply to a message)\n/chatop del <chat_id> <message_id>")
         return
     op = args[1].lower()
     chat_id = args[2]
@@ -1030,8 +1030,17 @@ async def chatop_handler(client, message: Message):
         if not message.reply_to_message:
             await message.reply_text("Reply to a message to send it.\nUsage: /chatop send <chat_id> (reply to a message)")
             return
+
+        # Optional: reply_to_message_id in destination chat
+        reply_to_msg_id = None
+        if len(args) == 4:
+            try:
+                reply_to_msg_id = int(args[3])
+            except ValueError:
+                await message.reply_text("❌ Invalid reply_to_message_id.")
+                return
         try:
-            sent = await message.reply_to_message.copy(int(chat_id))
+            sent = await message.reply_to_message.copy(int(chat_id), reply_to_message_id=reply_to_msg_id)
             await message.reply_text(f"✅ Sent to {chat_id} (message_id: {sent.id})")
         except Exception as e:
             await message.reply_text(f"❌ Failed: {e}")
@@ -1046,29 +1055,7 @@ async def chatop_handler(client, message: Message):
             await message.reply_text(f"❌ Failed: {e}")
     else:
         await message.reply_text("Invalid operation. Use 'send' or 'del'.")
-
-@bot.on_message(filters.command("reply") & filters.chat(LOG_CHANNEL_ID))
-async def reply_handler(client, message: Message):
-    msg = message.reply_to_message
-    text = message.text.split(maxsplit=1)
-    
-    if not msg or len(text) < 2:
-        return await message.reply_text("Reply to a forwarded message with: /reply <your message>")
-
-    target = msg.forward_from_chat or msg.forward_from
-    if not target or not msg.forward_from_message_id:
-        return await message.reply_text("Cannot identify the original sender or message.")
-
-    try:
-        await client.send_message(
-            chat_id=target.id,
-            text=text[1],
-            reply_to_message_id=msg.forward_from_message_id
-        )
-    except Exception as e:
-        logger.error(f"Reply Error: {e}")
-        await message.reply_text("Failed to send the reply.")        
-                                 
+                    
 @bot.on_message(filters.command("block") & filters.private & filters.user(OWNER_ID))
 async def block_user_handler(client, message: Message):
     """

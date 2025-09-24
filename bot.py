@@ -1047,6 +1047,24 @@ async def chatop_handler(client, message: Message):
     else:
         await message.reply_text("Invalid operation. Use 'send' or 'del'.")
 
+@bot.on_message(filters.command("reply") & filters.chat(LOG_CHANNEL_ID))
+async def reply_handler(client, message: Message):
+    try:
+        msg = message.reply_to_message
+        args = message.text.split()
+        if len(args) != 2:
+            await message.reply_text("Usage: /reply msg")
+            return
+        if msg:
+            fwrd_msg = msg.forward_from_chat
+            msg_id = msg.forward_from_message_id
+            await fwrd_msg.reply_text(text=f"{args[1]}", 
+                                      quote=True,
+                                      reply_message_id=msg_id
+                                     )
+    except Exception as e:
+        logger.error(f"Reply Error: {e}")
+                                 
 @bot.on_message(filters.command("block") & filters.private & filters.user(OWNER_ID))
 async def block_user_handler(client, message: Message):
     """

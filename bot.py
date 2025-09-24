@@ -855,7 +855,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
         return
 
     total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE
-    text = (f"📂 Found: {total_files} file(s)\n🛒 Category:{channel_name}")
+    text = (f"📂 Found: {total_files} file(s)\n🛒 Category: {channel_name}")
     buttons = []
     for f in files:
         file_link = encode_file_link(f["channel_id"], f["message_id"])

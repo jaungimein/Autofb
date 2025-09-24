@@ -1049,21 +1049,25 @@ async def chatop_handler(client, message: Message):
 
 @bot.on_message(filters.command("reply") & filters.chat(LOG_CHANNEL_ID))
 async def reply_handler(client, message: Message):
+    msg = message.reply_to_message
+    text = message.text.split(maxsplit=1)
+    
+    if not msg or len(text) < 2:
+        return await message.reply_text("Reply to a forwarded message with: /reply <your message>")
+
+    target = msg.forward_from_chat or msg.forward_from
+    if not target or not msg.forward_from_message_id:
+        return await message.reply_text("Cannot identify the original sender or message.")
+
     try:
-        msg = message.reply_to_message
-        args = message.text.split()
-        if len(args) != 2:
-            await message.reply_text("Usage: /reply msg")
-            return
-        if msg:
-            chat_id = msg.forward_from_chat.id
-            msg_id = msg.forward_from_message_id
-            await client.send_message(chat_id=chat_id,
-                                      text=f"{args[1]}", 
-                                      reply_to_message_id=msg_id
-                                     )
+        await client.send_message(
+            chat_id=target.id,
+            text=text[1],
+            reply_to_message_id=msg.forward_from_message_id
+        )
     except Exception as e:
         logger.error(f"Reply Error: {e}")
+        await message.reply_text("Failed to send the reply.")        
                                  
 @bot.on_message(filters.command("block") & filters.private & filters.user(OWNER_ID))
 async def block_user_handler(client, message: Message):

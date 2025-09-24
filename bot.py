@@ -659,13 +659,16 @@ async def send_log_file(client, message: Message):
     - Sends the bot.log file to the owner.
     """
     log_file = "bot_log.txt"
+    reply = None
     if not os.path.exists(log_file):
-        await safe_api_call(message.reply_text("Log file not found."))
+        reply = await safe_api_call(message.reply_text("Log file not found."))
         return
     try:
-        await safe_api_call(client.send_document(message.chat.id, log_file, caption="Here is the log file."))
+        reply = await safe_api_call(client.send_document(message.chat.id, log_file, caption="Here is the log file."))
     except Exception as e:
-        await safe_api_call(message.reply_text(f"Failed to send log file: {e}"))
+        reply = await safe_api_call(message.reply_text(f"Failed to send log file: {e}"))
+    if reply:
+        bot.loop.create_task(auto_delete_message(message, reply))
 
 @bot.on_message(filters.command("stats") & filters.private & filters.user(OWNER_ID))
 async def stats_command(client, message: Message):

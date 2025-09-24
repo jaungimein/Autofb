@@ -616,7 +616,7 @@ async def remove_channel_handler(client, message: Message):
     except Exception as e:
         await message.reply_text(f"Error: {e}")
 
-@bot.on_message(filters.command("broadcast") & filters.private & filters.user(OWNER_ID))
+@bot.on_message(filters.command("broadcast") & filters.chat(LOG_CHANNEL_ID))
 async def broadcast_handler(client, message: Message):
     """
     Handles the /broadcast command for the owner.
@@ -837,8 +837,8 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     channel_name = channel_info.get('channel_name', str(channel_id)) if channel_info else str(channel_id)
 
     if not files:
-        text = (f"Cateogry: {channel_name}\n"
-                f"No Result Found 🚫\nCheck Spelling ✍\n"
+        text = (f"🚫 No results found \n"
+                f"🛒 Cateogry: {channel_name}\n"
                 f"Tap Updates Or Request 👇"
         )
         buttons = [
@@ -855,12 +855,12 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
         return
 
     total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE
-    text = (f"<b>📂 Here's what i found for {query}</b>")
+    text = (f"📂 Found: {total_files} file(s)\n🛒 Category:{channel_name}")
     buttons = []
     for f in files:
         file_link = encode_file_link(f["channel_id"], f["message_id"])
         size_str = human_readable_size(f.get('file_size', 0))
-        btn_text = f"{size_str} 🔰 {f.get('file_name')}"
+        btn_text = f"{size_str} {f.get('file_name')}"
         if mode == 0:
             # Normal Get button
             btn = InlineKeyboardButton(
@@ -1013,7 +1013,7 @@ async def generate_and_send_invite(client, callback_query: CallbackQuery):
     except Exception as e:
         logger.error(f"Failed generate_and_send_invite: {e}")
 
-@bot.on_message(filters.command("chatop") & filters.private & filters.user(OWNER_ID))
+@bot.on_message(filters.command("chatop") & filters.chat(LOG_CHANNEL_ID))
 async def chatop_handler(client, message: Message):
     """
     Usage:
@@ -1065,7 +1065,8 @@ async def block_user_handler(client, message: Message):
             {"$set": {"blocked": True}},
             upsert=True
         )
-        await message.reply_text(f"✅ User {user_id} has been blocked.")
+        reply = await message.reply_text(f"✅ User {user_id} has been blocked.")
+        auto_delete_message(message, reply)
     except Exception as e:
         await message.reply_text(f"❌ Failed to block user: {e}")
 

@@ -1069,7 +1069,12 @@ async def generate_and_send_invite(client, callback_query: CallbackQuery):
     except Exception as e:
         logger.error(f"Failed generate_and_send_invite: {e}")
 
-
+@bot.on_message(filters.group & filters.service)
+async def auto_delete_service_message(client, message):
+    try:
+        await message.delete()
+    except Exception as e:
+        logger.error(f"Failed to auto-delete service message: {e}")
 
 @bot.on_message(filters.command("block") & filters.private & filters.user(OWNER_ID))
 async def block_user_handler(client, message: Message):

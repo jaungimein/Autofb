@@ -244,13 +244,15 @@ async def start_handler(client, message):
             keyboard = [buttons[i:i+2] for i in range(0, len(buttons), 2)]
 
             welcome_text = (
-                f"<b>Hey {first_name} 👋</b>\n\n"
-                f"<b>Type any movie|show title 🔎</b>\n\n"
-                f"<b>👤 User since {joined_str}</b>"
+                f"Hey <b>{first_name}</b> 👋\n\n"
+                f"Type any movie|show <b>Title</b> 🔎\n\n"
+                f"👤 User since {joined_str}"
             )
 
             reply_msg = await safe_api_call(message.reply_text(
                 welcome_text,
+                quote=True,
+                reply_to_message_id=message.id,
                 reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode=enums.ParseMode.HTML
             ))

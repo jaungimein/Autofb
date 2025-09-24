@@ -1056,11 +1056,11 @@ async def reply_handler(client, message: Message):
             await message.reply_text("Usage: /reply msg")
             return
         if msg:
-            fwrd_msg = msg.forward_from_chat
+            chat_id = msg.forward_from_chat.id
             msg_id = msg.forward_from_message_id
-            await fwrd_msg.reply_text(text=f"{args[1]}", 
-                                      quote=True,
-                                      reply_message_id=msg_id
+            await client.send_message(chat_id=chat_id,
+                                      text=f"{args[1]}", 
+                                      reply_to_message_id=msg_id
                                      )
     except Exception as e:
         logger.error(f"Reply Error: {e}")

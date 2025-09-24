@@ -777,7 +777,10 @@ async def instant_search_handler(client, message):
         if user_doc.get("blocked", True):
             return
                         
-        reply = await message.reply_text("Searching please wait ...")
+        reply = await message.reply_text(text="Searching please wait ...",
+                                         quote=True,
+                                         reply_to_message_id=message.id
+                                         )
 
         channels = list(allowed_channels_col.find({}, {"_id": 0, "channel_id": 1, "channel_name": 1}))
         if not channels:

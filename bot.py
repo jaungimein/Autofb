@@ -975,8 +975,60 @@ async def view_file_callback_handler(client, callback_query: CallbackQuery):
     
     await callback_query.answer(f"{file_name}", show_alert=True)
 
+@bot.on_message(filters.command("chatop") & filters.chat(LOG_CHANNEL_ID))
+async def chatop_handler(client, message: Message):
+    """
+    Usage:
+      /chatop send <chat_id> [reply_to_message_id] (reply to a message to send)
+      /chatop del <chat_id> <message_id>
+    """
+    args = message.text.split(maxsplit=4)
+    if len(args) < 3:
+        await message.reply_text(
+            "Usage:\n/chatop send <chat_id> [reply_to_message_id] (reply to a message)\n"
+            "/chatop del <chat_id> <message_id>"
+        )
+        return
 
-           
+    op = args[1].lower()
+    chat_id = int(args[2])
+
+    if op == "send":
+        if not message.reply_to_message:
+            await message.reply_text("❌ Reply to a message to send it.")
+            return
+
+        # Optional: reply_to_message_id in destination chat
+        reply_to_msg_id = None
+        if len(args) == 4:
+            try:
+                reply_to_msg_id = int(args[3])
+            except ValueError:
+                await message.reply_text("❌ Invalid reply_to_message_id.")
+                return
+
+        try:
+            sent = await message.reply_to_message.copy(
+                chat_id,
+                reply_to_message_id=reply_to_msg_id
+            )
+            await message.reply_text(f"✅ Sent to {chat_id} (message_id: {sent.id})")
+        except Exception as e:
+            await message.reply_text(f"❌ Failed: {e}")
+
+    elif op == "del":
+        if len(args) != 4:
+            await message.reply_text("Usage: /chatop del <chat_id> <message_id>")
+            return
+        try:
+            await client.delete_messages(chat_id, int(args[3]))
+            await message.reply_text(f"✅ Deleted message {args[3]} in chat {chat_id}")
+        except Exception as e:
+            await message.reply_text(f"❌ Failed: {e}")
+
+    else:
+        await message.reply_text("Invalid operation. Use 'send' or 'del'.")
+            
 @bot.on_callback_query(filters.regex(r"^noop$"))
 async def noop_callback_handler(client, callback_query: CallbackQuery):
     await callback_query.answer()  # Instantly respond, does nothing
@@ -1013,48 +1065,8 @@ async def generate_and_send_invite(client, callback_query: CallbackQuery):
     except Exception as e:
         logger.error(f"Failed generate_and_send_invite: {e}")
 
-@bot.on_message(filters.command("chatop") & filters.chat(LOG_CHANNEL_ID))
-async def chatop_handler(client, message: Message):
-    """
-    Usage:
-      /chatop send <chat_id> [reply_to_message_id] (reply to a message to send)
-      /chatop del <chat_id> <message_id>
-    """
-    args = message.text.split(maxsplit=4)
-    if len(args) < 3:
-        await message.reply_text("Usage:\n/chatop send <chat_id> [reply_to_message_id] (reply to a message)\n/chatop del <chat_id> <message_id>")
-        return
-    op = args[1].lower()
-    chat_id = args[2]
-    if op == "send":
-        if not message.reply_to_message:
-            await message.reply_text("Reply to a message to send it.\nUsage: /chatop send <chat_id> (reply to a message)")
-            return
-            
-        reply_to_msg_id = None
-        if len(args) == 4:
-            try:
-                reply_to_msg_id = int(args[3])
-            except ValueError:
-                await message.reply_text("❌ Invalid reply_to_message_id.")
-                return
-        try:
-            sent = await message.reply_to_message.copy(int(chat_id), reply_to_message_id=reply_to_msg_id)
-            await message.reply_text(f"✅ Sent to {chat_id} (message_id: {sent.id})")
-        except Exception as e:
-            await message.reply_text(f"❌ Failed: {e}")
-    elif op == "del":
-        if len(args) != 4:
-            await message.reply_text("Usage: /chatop del <chat_id> <message_id>")
-            return
-        try:
-            await client.delete_messages(int(chat_id), int(args[3]))
-            await message.reply_text(f"✅ Deleted message {args[3]} in chat {chat_id}")
-        except Exception as e:
-            await message.reply_text(f"❌ Failed: {e}")
-    else:
-        await message.reply_text("Invalid operation. Use 'send' or 'del'.")
-                    
+
+
 @bot.on_message(filters.command("block") & filters.private & filters.user(OWNER_ID))
 async def block_user_handler(client, message: Message):
     """

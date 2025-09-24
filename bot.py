@@ -174,7 +174,7 @@ async def start_handler(client, message):
             if is_token_valid(message.command[1][6:], user_id):
                 authorize_user(user_id)
                 reply_msg = await safe_api_call(message.reply_text("✅ Enjoy full access for the day!"))
-                await safe_api_call(bot.send_message(LOG_CHANNEL_ID, f"✅ User <b>{user_link}| <code>{user_id}</code></b> authorized via token."))
+                await safe_api_call(bot.send_message(LOG_CHANNEL_ID, f"✅ User <b>{user_link}| <code>{user_id}</code></b> authorized via @{BOT_USERNAME}"))
             else:
                 reply_msg = await safe_api_call(message.reply_text("❌ Invalid or expired token. Please get a new link."))
                 await safe_api_call(bot.send_message(LOG_CHANNEL_ID, f"❌ User <b>{user_link}| <code>{user_id}</code></b> used invalid or expired token."))

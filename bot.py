@@ -1030,8 +1030,7 @@ async def chatop_handler(client, message: Message):
         if not message.reply_to_message:
             await message.reply_text("Reply to a message to send it.\nUsage: /chatop send <chat_id> (reply to a message)")
             return
-
-        # Optional: reply_to_message_id in destination chat
+            
         reply_to_msg_id = None
         if len(args) == 4:
             try:

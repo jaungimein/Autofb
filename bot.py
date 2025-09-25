@@ -174,10 +174,10 @@ async def start_handler(client, message):
             if is_token_valid(message.command[1][6:], user_id):
                 authorize_user(user_id)
                 reply_msg = await safe_api_call(message.reply_text("✅ Enjoy full access for the day!"))
-                await safe_api_call(bot.send_message(LOG_CHANNEL_ID, f"✅ User <b>{user_link}| <code>{user_id}</code></b> authorized via @{BOT_USERNAME}"))
+                await safe_api_call(bot.send_message(LOG_CHANNEL_ID, f"✅ User <b>{user_link} | <code>{user_id}</code></b> authorized via @{BOT_USERNAME}"))
             else:
                 reply_msg = await safe_api_call(message.reply_text("❌ Invalid or expired token. Please get a new link."))
-                await safe_api_call(bot.send_message(LOG_CHANNEL_ID, f"❌ User <b>{user_link}| <code>{user_id}</code></b> used invalid or expired token."))
+                await safe_api_call(bot.send_message(LOG_CHANNEL_ID, f"❌ User <b>{user_link} | <code>{user_id}</code></b> used invalid or expired token."))
 
         # --- File access via deep link ---
         elif len(message.command) == 2 and message.command[1].startswith("file_"):
@@ -245,7 +245,7 @@ async def start_handler(client, message):
 
             welcome_text = (
                 f"Hey <b>{first_name}</b> 👋\n\n"
-                f"Type any movie|show <b>Title</b> 🔎\n\n"
+                f"Type any movie or show <b>Title</b> 🔎\n\n"
                 f"👤 User since {joined_str}"
             )
 
@@ -840,7 +840,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     channel_name = channel_info.get('channel_name', str(channel_id)) if channel_info else str(channel_id)
 
     if not files:
-        logger.error(f" {user_id} | {query}")
+        logger.error(f" {user_id} | {query} | {channel_name}")
         text = (f"🚫 No results found \n"
                 f"🛒 Cateogry: {channel_name}\n"
                 f"Tap Updates Or Request 👇"

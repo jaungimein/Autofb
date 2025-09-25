@@ -809,7 +809,7 @@ async def tmdb_command(client, message):
 # Handles incoming text messages in private chat that aren't commands
 @bot.on_message(filters.private & filters.text & ~filters.command([
     "start", "stats", "add", "rm", "broadcast", "log", "tmdb", "atmdb", 
-    "restore", "index", "del", "restart", "chatop", "block"]))
+    "restore", "index", "del", "restart", "co", "block"]))
 async def instant_search_handler(client, message):
     reply = None
     user_id = message.from_user.id
@@ -1082,14 +1082,14 @@ async def chatop_handler(client, message: Message):
                     return
                 for msg_id in range(start, end + 1):
                     try:
-                        await client.delete_messages(chat_id, msg_id)
+                        await safe_api_call(client.delete_messages(chat_id, msg_id))
                         deleted_ids.append(msg_id)
                     except Exception:
                         pass 
                 await message.reply_text(f"✅ Deleted messages {deleted_ids} in chat {chat_id}")
             else:
                 msg_id = int(msg_arg)
-                await client.delete_messages(chat_id, msg_id)
+                await safe_api_call(client.delete_messages(chat_id, msg_id))
                 await message.reply_text(f"✅ Deleted message {msg_id} in chat {chat_id}")
         except Exception as e:
             await message.reply_text(f"❌ Failed: {e}")

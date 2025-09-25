@@ -960,8 +960,16 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
 async def send_file_callback(client, callback_query: CallbackQuery):
     file_link = callback_query.matches[0].group(1)
     user_id = callback_query.from_user.id
+
+    padding = '=' * (-len(file_link) % 4)
+    decoded = base64.urlsafe_b64decode(file_link + padding).decode()
+    channel_id_str, msg_id_str = decoded.split("_")
+    channel_id = int(channel_id_str)
+    msg_id = int(msg_id_str)
+
+
     try:
-        if not is_user_authorized(user_id):
+        if not is_user_authorized(user_id) and msg_id != UNLOCK_ID:
             now = datetime.now(timezone.utc)
             token_doc = tokens_col.find_one({
                 "user_id": user_id,
@@ -986,12 +994,6 @@ async def send_file_callback(client, callback_query: CallbackQuery):
         if user_file_count[user_id] >= MAX_FILES_PER_SESSION:
             await safe_api_call(callback_query.answer("Limit reached. Please take a break.", show_alert=True))
             return
-
-        padding = '=' * (-len(file_link) % 4)
-        decoded = base64.urlsafe_b64decode(file_link + padding).decode()
-        channel_id_str, msg_id_str = decoded.split("_")
-        channel_id = int(channel_id_str)
-        msg_id = int(msg_id_str)
 
         file_doc = files_col.find_one({"channel_id": channel_id, "message_id": msg_id})
         if not file_doc:

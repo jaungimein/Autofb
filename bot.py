@@ -247,8 +247,8 @@ async def start_handler(client, message):
 
             welcome_text = (
                 f"Hey <b>{first_name}</b> 👋\n\n"
-                f"Type any keywords to 🔎\n"
-                f"👤 Joined Since {joined_str}"
+                f"Type any keywords to 🔎\n\n"
+                f"👤 {joined_str}"
             )
 
             reply_msg = await safe_api_call(message.reply_text(

@@ -367,7 +367,7 @@ async def restore_atmdb_photos(bot, start_id=None):
             if poster_url:
                 await safe_api_call(
                     bot.send_photo(
-                        UPDATE_CHANNEL_ID,
+                        UPDATE_CHANNEL_ID3,
                         photo=poster_url,
                         caption=info,
                         parse_mode=enums.ParseMode.HTML,

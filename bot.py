@@ -793,7 +793,7 @@ async def tmdb_command(client, message):
         if poster_url:
             await safe_api_call(
                 client.send_photo(
-                    UPDATE_CHANNEL_ID,
+                    UPDATE_CHANNEL_ID3,
                     photo=poster_url,
                     caption=info,
                     parse_mode=enums.ParseMode.HTML,

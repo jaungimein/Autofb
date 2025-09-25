@@ -542,17 +542,8 @@ async def delete_command(client, message):
 async def restart(client, message):
     """
     Handles the /restart command for the owner.
-    - If used with arg 'del', deletes the log file.
-    - Runs update.py, and restarts the bot.
     """
-    log_file = "bot_log.txt"
-    args = message.command  # This will be ['restart'] or ['restart', 'del']
-
     await message.delete()
-    
-    if len(args) > 1 and args[1].lower() == "del":
-        if os.path.exists(log_file):
-            os.remove(log_file)
 
     os.system("python3 update.py")
     os.execl(sys.executable, sys.executable, "bot.py")
@@ -913,7 +904,13 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
                         "⚡ Loki\n"
                             "📺 Loki S01E01",
                                 show_alert=True
-                                )  
+                                )
+        await safe_api_call(bot.send_message(
+                                LOG_CHANNEL_ID, 
+                                f"Query: <code>{query}</code>\n"
+                                f"Cateogry: {channel_name}\n"
+                                f"{user_link} | <code>{user_id}</code>"
+                                ))
         return
 
     total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE

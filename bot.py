@@ -542,17 +542,21 @@ async def delete_command(client, message):
 async def restart(client, message):
     """
     Handles the /restart command for the owner.
-    - Deletes the log file, runs update.py, and restarts the bot.
-    """    
+    - If used with arg 'del', deletes the log file.
+    - Runs update.py, and restarts the bot.
+    """
     log_file = "bot_log.txt"
-    if os.path.exists(log_file):
-        try:
+    args = message.command  # This will be ['restart'] or ['restart', 'del']
+
+    await message.delete()
+    
+    if len(args) > 1 and args[1].lower() == "del":
+        if os.path.exists(log_file):
             os.remove(log_file)
-        except Exception as e:
-            await safe_api_call(message.reply_text(f"Failed to delete log file: {e}"))
+
     os.system("python3 update.py")
     os.execl(sys.executable, sys.executable, "bot.py")
-
+    
 @bot.on_message(filters.private & filters.command("restore") & filters.user(OWNER_ID))
 async def update_info(client, message):
     try:

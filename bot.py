@@ -78,7 +78,7 @@ def sanitize_query(query):
     query = re.sub(r"\s*&\s*", " and ", query)
     # Replace multiple spaces and limit length
     query = re.sub(r"[:',]", "", query)
-    query = re.sub(r"[.\s_\-\(\)\[\]]+", " ", query).strip()
+    query = re.sub(r"[.\s_\-\(\)\[\]!]+", " ", query).strip()
     return query
 
 def encode_file_link(channel_id, message_id):
@@ -883,7 +883,6 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     channel_name = channel_info.get('channel_name', str(channel_id)) if channel_info else str(channel_id)
 
     if not files:
-        logger.error(f" {user_id} | {query} | {channel_name}")
         text = (f"🚫 No results found \n"
                 f"🛒 Cateogry: {channel_name}\n"
                 f"Tap below 👇 for keywords"

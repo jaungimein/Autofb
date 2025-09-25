@@ -27,13 +27,15 @@ from utility import (
     restore_tmdb_photos, build_search_pipeline,
     get_user_link, delete_after_delay,
     restore_imgbb_photos, remove_unwanted,
+    restore_atmdb_photos
     )
 from db import (db, users_col, 
                 tokens_col, 
                 files_col, 
                 allowed_channels_col, 
                 auth_users_col,
-                tmdb_col, imgbb_col
+                tmdb_col, imgbb_col,
+                atmdb_col
                 )
 
 from fast_api import api
@@ -570,6 +572,8 @@ async def update_info(client, message):
             await restore_tmdb_photos(bot, start_id)
         elif restore_type == "imgbb":
             await restore_imgbb_photos(bot, start_id)
+        elif restore_type == "atmdb":
+            await restore_atmdb_photos(bot, start_id)
         else:
             await message.reply_text("Invalid restore type. Use 'tmdb'.")
     except Exception as e:
@@ -759,9 +763,52 @@ async def tmdb_command(client, message):
         await safe_api_call(message.reply_text(f"Error in tmdb command: {e}"))
     await message.delete()
 
+@bot.on_message(filters.private & filters.command("ad") & filters.user(OWNER_ID))
+async def tmdb_command(client, message):
+    try:
+        if len(message.command) < 2:
+            reply = await safe_api_call(message.reply_text("Usage: /ad tmdb_link"))
+            await auto_delete_message(message, reply)
+            return
+
+        tmdb_link = message.command[1]
+        tmdb_type, tmdb_id = await extract_tmdb_link(tmdb_link)
+        result = await get_info(tmdb_type, tmdb_id)
+        poster_url = result.get('poster_url')
+        trailer = result.get('trailer_url')
+        info = result.get('message')
+
+        update = {
+            "$setOnInsert": {"tmdb_id": tmdb_id, "tmdb_type": tmdb_type}
+        }
+
+        atmdb_col.update_one(
+            {"tmdb_id": tmdb_id, "tmdb_type": tmdb_type},
+            update,
+            upsert=True
+        )
+
+        keyboard = InlineKeyboardMarkup(
+            [[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
+        if poster_url:
+            await safe_api_call(
+                client.send_photo(
+                    UPDATE_CHANNEL_ID,
+                    photo=poster_url,
+                    caption=info,
+                    parse_mode=enums.ParseMode.HTML,
+                    reply_markup=keyboard
+                )
+            )
+    except Exception as e:
+        logging.exception("Error in tmdb_command")
+        await safe_api_call(message.reply_text(f"Error in tmdb command: {e}"))
+    await message.delete()
+
+
 # Handles incoming text messages in private chat that aren't commands
 @bot.on_message(filters.private & filters.text & ~filters.command([
-    "start", "stats", "add", "rm", "broadcast", "log", "tmdb", 
+    "start", "stats", "add", "rm", "broadcast", "log", "tmdb", "atmdb", 
     "restore", "index", "del", "restart", "chatop", "block"]))
 async def instant_search_handler(client, message):
     reply = None
@@ -979,18 +1026,19 @@ async def view_file_callback_handler(client, callback_query: CallbackQuery):
     
     await callback_query.answer(f"{file_name}", show_alert=True)
 
-@bot.on_message(filters.command("chatop") & filters.chat(LOG_CHANNEL_ID))
+@bot.on_message(filters.command("co") & filters.chat(LOG_CHANNEL_ID))
 async def chatop_handler(client, message: Message):
     """
     Usage:
-      /chatop send <chat_id> [reply_to_message_id] (reply to a message to send)
-      /chatop del <chat_id> <message_id>
+      /co send <chat_id> [reply_to_message_id] (reply to a message to send)
+      /co del <chat_id> <message_id>         (single message)
+      /co del <chat_id> <start>-<end>        (range, e.g. 7-29)
     """
     args = message.text.split(maxsplit=4)
     if len(args) < 3:
         await message.reply_text(
-            "Usage:\n/chatop send <chat_id> [reply_to_message_id] (reply to a message)\n"
-            "/chatop del <chat_id> <message_id>"
+            "Usage:\n/co send <chat_id> [reply_to_message_id] (reply to a message)\n"
+            "/co del <chat_id> <message_id> or <start>-<end>"
         )
         return
 
@@ -1002,7 +1050,6 @@ async def chatop_handler(client, message: Message):
             await message.reply_text("❌ Reply to a message to send it.")
             return
 
-        # Optional: reply_to_message_id in destination chat
         reply_to_msg_id = None
         if len(args) == 4:
             try:
@@ -1022,14 +1069,30 @@ async def chatop_handler(client, message: Message):
 
     elif op == "del":
         if len(args) != 4:
-            await message.reply_text("Usage: /chatop del <chat_id> <message_id>")
+            await message.reply_text("Usage: /co del <chat_id> <message_id> or <start>-<end>")
             return
+
+        msg_arg = args[3]
         try:
-            await client.delete_messages(chat_id, int(args[3]))
-            await message.reply_text(f"✅ Deleted message {args[3]} in chat {chat_id}")
+            deleted_ids = []
+            if '-' in msg_arg:
+                start, end = map(int, msg_arg.split('-'))
+                if start > end:
+                    await message.reply_text("❌ Start ID must be less than or equal to end ID.")
+                    return
+                for msg_id in range(start, end + 1):
+                    try:
+                        await client.delete_messages(chat_id, msg_id)
+                        deleted_ids.append(msg_id)
+                    except Exception:
+                        pass 
+                await message.reply_text(f"✅ Deleted messages {deleted_ids} in chat {chat_id}")
+            else:
+                msg_id = int(msg_arg)
+                await client.delete_messages(chat_id, msg_id)
+                await message.reply_text(f"✅ Deleted message {msg_id} in chat {chat_id}")
         except Exception as e:
             await message.reply_text(f"❌ Failed: {e}")
-
     else:
         await message.reply_text("Invalid operation. Use 'send' or 'del'.")
 

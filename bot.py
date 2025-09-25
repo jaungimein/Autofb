@@ -1074,7 +1074,6 @@ async def chatop_handler(client, message: Message):
 
         msg_arg = args[3]
         try:
-            deleted_ids = []
             if '-' in msg_arg:
                 start, end = map(int, msg_arg.split('-'))
                 if start > end:
@@ -1083,10 +1082,9 @@ async def chatop_handler(client, message: Message):
                 for msg_id in range(start, end + 1):
                     try:
                         await safe_api_call(client.delete_messages(chat_id, msg_id))
-                        deleted_ids.append(msg_id)
                     except Exception:
                         pass 
-                await message.reply_text(f"✅ Deleted messages {deleted_ids} in chat {chat_id}")
+                await message.reply_text(f"✅ Deleted messages in chat {chat_id}")
             else:
                 msg_id = int(msg_arg)
                 await safe_api_call(client.delete_messages(chat_id, msg_id))

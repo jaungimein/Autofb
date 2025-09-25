@@ -371,6 +371,7 @@ async def restore_atmdb_photos(bot, start_id=None):
                         photo=poster_url,
                         caption=info,
                         parse_mode=enums.ParseMode.HTML,
+                        has_spoiler=True,
                         reply_markup=keyboard
                     )
                 )

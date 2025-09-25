@@ -797,6 +797,7 @@ async def tmdb_command(client, message):
                     photo=poster_url,
                     caption=info,
                     parse_mode=enums.ParseMode.HTML,
+                    has_spoiler=True,
                     reply_markup=keyboard
                 )
             )

@@ -247,7 +247,7 @@ async def start_handler(client, message):
 
             welcome_text = (
                 f"Hey <b>{first_name}</b> 👋\n\n"
-                f"Type any movie or show <b>Title</b> 🔎\n\n"
+                f"Type any keywords to 🔎"
                 f"👤 User since {joined_str}"
             )
 
@@ -895,7 +895,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
         logger.error(f" {user_id} | {query} | {channel_name}")
         text = (f"🚫 No results found \n"
                 f"🛒 Cateogry: {channel_name}\n"
-                f"Tap Updates Or Request 👇"
+                f"Tap below 👇 for keywords"
         )
         buttons = [
                    InlineKeyboardButton(name, callback_data=f"gen_invite:{chan_id}")
@@ -907,7 +907,13 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
         await callback_query.edit_message_text(text, 
                                                reply_markup=InlineKeyboardMarkup(keyboard)
         )
-        await callback_query.answer("Eg: Inception | Loki | Loki S01E01", show_alert=True)
+        await callback_query.answer(
+                "📌 Keywords specifics:\n\n"
+                    "🎬 Inception\n"
+                        "⚡ Loki\n"
+                            "📺 Loki S01E01",
+                                show_alert=True
+                                )  
         return
 
     total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE

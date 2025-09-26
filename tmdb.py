@@ -39,7 +39,6 @@ def format_tmdb_info(tmdb_type, movie_id, data):
         imdb_id = data.get('imdb_id')
         imdb_info = get_imdb_details(imdb_id) if imdb_id else {}
 
-        plot = imdb_info.get('plot')
         title = data.get('title')
         genre = extract_genres(data)
         genre_tags = " ".join([genre_tag_with_emoji(g) for g in genre])
@@ -53,6 +52,7 @@ def format_tmdb_info(tmdb_type, movie_id, data):
             rating_str = f"{rating}"
         else:
             rating_str = None
+        plot = data.get('overview') if data.get('adult') else imdb_info.get('plot')
 
         message = f"<b>🎬 Title:</b> {title}\n"
         message += f"<b>📆 Release Date:</b> {release_date}\n" if release_date else ""
@@ -72,7 +72,6 @@ def format_tmdb_info(tmdb_type, movie_id, data):
         imdb_id = get_tv_imdb_id_sync(movie_id)
         imdb_info = get_imdb_details(imdb_id) if imdb_id else {}
 
-        plot = imdb_info.get('plot')
         title = data.get('name')
         genre = extract_genres(data)
         genre_tags = " ".join([genre_tag_with_emoji(g) for g in genre])
@@ -85,7 +84,8 @@ def format_tmdb_info(tmdb_type, movie_id, data):
             rating_str = f"{rating}"
         else:
             rating_str = None
-
+        plot = data.get('overview') if data.get('adult') else imdb_info.get('plot')
+        
         message = f"<b>📺 Title:</b> {title}\n"
         message += f"<b>📅 Release Date:</b> {release_date}\n" if release_date else ""
         message += f"<b>📺 Seasons:</b> {data.get('number_of_seasons', '')}\n" if data.get('number_of_seasons') else ""

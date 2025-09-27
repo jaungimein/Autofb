@@ -829,6 +829,8 @@ async def instant_search_handler(client, message):
                                          quote=True,
                                          reply_to_message_id=message.id
                                          )
+        
+        await asyncio.sleep(3) 
 
         channels = list(allowed_channels_col.find({}, {"_id": 0, "channel_id": 1, "channel_name": 1}))
         if not channels:
@@ -883,10 +885,13 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     channel_name = channel_info.get('channel_name', str(channel_id)) if channel_info else str(channel_id)
 
     if not files:
-        text = (f"🚫 No results found \n"
-                f"🛒 Cateogry: {channel_name}\n"
-                f"Tap below 👇 for keywords"
-        )
+        google_search_url = f"https://www.google.com/search?q={query.replace(' ', '+')}"
+        text = (f"🚫 No match found in {channel_name}\n"
+                f"Search on <a href=\"{google_search_url}\">Google</a> for exact keywords\n\n"
+                f"\n"
+                f"Tap below 👇 for more keywords"
+                )
+        
         buttons = [
                    InlineKeyboardButton(name, callback_data=f"gen_invite:{chan_id}")
                    for name, chan_id in UPDATE_CHANNELS.items()
@@ -898,12 +903,13 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
                                                reply_markup=InlineKeyboardMarkup(keyboard)
         )
         await callback_query.answer(
-                "📌 Keywords specifics:\n\n"
-                    "🎬 Inception\n"
-                        "⚡ Loki\n"
-                            "📺 Loki S01E01",
-                                show_alert=True
-                                )
+            "Tip: Try searching by title only (e.g. 'Inception'),\n"
+            "or add season/episode (e.g. 'Breaking Bad S01E02')\n"
+            "for more precise results.\n"
+            "Works for movies, series, and music.\n"
+            "Still not found? Ask in the Request group.",
+            show_alert=True
+        )
         await safe_api_call(bot.send_message(
                                 LOG_CHANNEL_ID, 
                                 f"Query: <code>{query}</code>\n"

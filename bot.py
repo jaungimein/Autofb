@@ -903,11 +903,10 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
                                                reply_markup=InlineKeyboardMarkup(keyboard)
         )
         await callback_query.answer(
-            "Tip: Try searching by title only (e.g. 'Inception'),\n"
-            "or add season/episode (e.g. 'Breaking Bad S01E02')\n"
-            "for more precise results.\n"
-            "Works for movies, series, and music.\n"
-            "Still not found? Ask in the Request group.",
+            "Tip: Try searching by title only.\n"
+            "(e.g. 'Inception' 'Beaking Bad'),\n"
+            "Use SeasonEpisode for more precise results.\n"
+            "(e.g. 'Friends S01E01')",
             show_alert=True
         )
         logger.info(

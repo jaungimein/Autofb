@@ -800,7 +800,7 @@ async def tmdb_command(client, message):
 # Handles incoming text messages in private chat that aren't commands
 @bot.on_message(filters.private & filters.text & ~filters.command([
     "start", "stats", "add", "rm", "broadcast", "log", "tmdb", "atmdb", 
-    "restore", "index", "del", "restart", "co", "block"]))
+    "restore", "index", "del", "restart", "co", "block", "revoke"]))
 async def instant_search_handler(client, message):
     reply = None
     user_id = message.from_user.id
@@ -1036,19 +1036,19 @@ async def view_file_callback_handler(client, callback_query: CallbackQuery):
     
     await callback_query.answer(f"{file_name}", show_alert=True)
 
-@bot.on_message(filters.command("co") & filters.chat(LOG_CHANNEL_ID))
+@bot.on_message(filters.command("op") & filters.chat(LOG_CHANNEL_ID))
 async def chatop_handler(client, message: Message):
     """
     Usage:
-      /co send <chat_id> [reply_to_message_id] (reply to a message to send)
-      /co del <chat_id> <message_id>         (single message)
-      /co del <chat_id> <start>-<end>        (range, e.g. 7-29)
+      /op send <chat_id> [reply_to_message_id] (reply to a message to send)
+      /op del <chat_id> <message_id>         (single message)
+      /op del <chat_id> <start>-<end>        (range, e.g. 7-29)
     """
     args = message.text.split(maxsplit=4)
     if len(args) < 3:
         await message.reply_text(
-            "Usage:\n/co send <chat_id> [reply_to_message_id] (reply to a message)\n"
-            "/co del <chat_id> <message_id> or <start>-<end>"
+            "Usage:\n/op send <chat_id> [reply_to_message_id] (reply to a message)\n"
+            "/op del <chat_id> <message_id> or <start>-<end>"
         )
         return
 
@@ -1079,7 +1079,7 @@ async def chatop_handler(client, message: Message):
 
     elif op == "del":
         if len(args) != 4:
-            await message.reply_text("Usage: /co del <chat_id> <message_id> or <start>-<end>")
+            await message.reply_text("Usage: /op del <chat_id> <message_id> or <start>-<end>")
             return
 
         msg_arg = args[3]
@@ -1145,7 +1145,7 @@ async def generate_and_send_invite(client, callback_query: CallbackQuery):
     except Exception as e:
         logger.error(f"Failed generate_and_send_invite: {e}")
 
-@bot.on_message(filters.command("revote") & filters.private & filters.user(OWNER_ID))
+@bot.on_message(filters.command("revoke") & filters.private & filters.user(OWNER_ID))
 async def revoke_invite_handler(client, message: Message):
     """
     Handles the /revote command for the owner.

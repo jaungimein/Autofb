@@ -958,7 +958,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
         await safe_api_call(callback_query.edit_message_text(
             text,
             reply_markup=reply_markup,
-            parse_mode=enums.ParseMode.HTML
+            parse_mode=enums.ParseMode.HTML,
             disable_web_page_preview=True
         ))
     except Exception:

@@ -887,7 +887,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     if not files:
         google_search_url = f"https://www.google.com/search?q={query.replace(' ', '+')}"
         text = (f"🚫 No match found in {channel_name}\n"
-                f"Search on <a href=\"{google_search_url}\">Google</a> for exact keywords\n\n"
+                f"Search on <a href=\"{google_search_url}\">Google</a> for exact spelling\n\n"
                 f"\n"
                 f"Tap below 👇 for more keywords"
                 )
@@ -900,13 +900,13 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
         keyboard = [buttons[i:i+2] for i in range(0, len(buttons), 2)]
 
         await callback_query.edit_message_text(text, 
-                                               reply_markup=InlineKeyboardMarkup(keyboard)
+                                               reply_markup=InlineKeyboardMarkup(keyboard),
+                                               disable_web_page_preview=True
         )
         await callback_query.answer(
-            "Tip: Try searching by title only.\n"
-            "(e.g. 'Inception' 'Beaking Bad'),\n"
-            "Use SeasonEpisode for more precise results.\n"
-            "(e.g. 'Friends S01E01')",
+            "Search tips:\n"
+            "- Use title only of movie/series (e.g. Inception, Dark)\n"
+            "- Add season/episode for series (e.g. S01E01)\n",
             show_alert=True
         )
         logger.info(

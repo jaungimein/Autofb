@@ -910,12 +910,11 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
             "Still not found? Ask in the Request group.",
             show_alert=True
         )
-        await safe_api_call(bot.send_message(
-                                LOG_CHANNEL_ID, 
-                                f"Query: <code>{query}</code>\n"
-                                f"Cateogry: {channel_name}\n"
-                                f"{user_link} | <code>{user_id}</code>"
-                                ))
+        logger.info(
+            f"Query: {query}\n"
+            f"Category: {channel_name}\n"
+            f"{user_id}"
+        )
         return
 
     total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE

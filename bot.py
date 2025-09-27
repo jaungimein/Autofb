@@ -959,6 +959,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
             text,
             reply_markup=reply_markup,
             parse_mode=enums.ParseMode.HTML
+            disable_web_page_preview=True
         ))
     except Exception:
         pass

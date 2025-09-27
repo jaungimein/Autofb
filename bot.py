@@ -881,8 +881,8 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
 
     if not files:
         google_search_url = f"https://www.google.com/search?q={query.replace(' ', '+')}"
-        text = (f"🚫 No match found in {channel_name}\n"
-                f"Spelling check 👉 <b><a href=\"{google_search_url}\">Google</a></b>\n"
+        text = (f"🚫 No match found in {channel_name}\n\n"
+                f"Spelling check 👉 <b><a href=\"{google_search_url}\">Google</a></b>\n\n"
                 f"For more keywords 👇"
                 )
         
@@ -899,8 +899,8 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
         )
         await callback_query.answer(
             "📌 Search tips:\n"
-            "• Search by Title or Title + SeasonEpisode\n"
-            "• Select proper cateogry (e.g. Movies, Shows)\n"
+            "• Use Title of Movie/Show\n"
+            "• Select Cateogry (e.g. Movies, Shows)\n"
             "E.g. Inception, Breaking Bad\n"
             "Friends S01E01, The Office S02E03",
             show_alert=True
@@ -1107,8 +1107,8 @@ async def chatop_handler(client, message: Message):
 @bot.on_callback_query(filters.regex(r"^noop$"))
 async def noop_callback_handler(client, callback_query: CallbackQuery):
     await callback_query.answer("📌 Search tips:\n"
-                                "• Search by Title or Title + SeasonEpisode\n"
-                                "• Select proper cateogry (e.g. Movies, Shows)\n"
+                                "• Use Title of Movie/Show\n"
+                                "• Select Cateogry (e.g. Movies, Shows)\n"
                                 "E.g. Inception, Breaking Bad\n"
                                 "Friends S01E01, The Office S02E03",
                                 show_alert=True) 

@@ -887,9 +887,8 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
     if not files:
         google_search_url = f"https://www.google.com/search?q={query.replace(' ', '+')}"
         text = (f"🚫 No match found in {channel_name}\n"
-                f"Search on <a href=\"{google_search_url}\">Google</a> for exact spelling\n\n"
-                f"\n"
-                f"Tap below 👇 for more keywords"
+                f"Spelling check 👉 <b><a href=\"{google_search_url}\">Google</a></b>\n"
+                f"For more keywords 👇"
                 )
         
         buttons = [
@@ -904,9 +903,9 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
                                                disable_web_page_preview=True
         )
         await callback_query.answer(
-            "Search tips:\n"
-            "- Use title only of movie/series (e.g. Inception, Dark)\n"
-            "- Add season/episode for series (e.g. S01E01)\n",
+            "📌 Search tips:\n"
+            "E.g. Inception, Breaking Bad\n"
+            "Friends S01E01, The Office S02E03",
             show_alert=True
         )
         logger.info(

@@ -238,12 +238,7 @@ async def start_handler(client, message):
             else:
                 joined_str = "Unknown"
 
-            buttons = [
-                    InlineKeyboardButton(name, callback_data=f"gen_invite:{chan_id}")
-                        for name, chan_id in UPDATE_CHANNELS.items()
-                        ]
-
-            keyboard = [buttons[i:i+2] for i in range(0, len(buttons), 2)]
+            keyboard = [[InlineKeyboardButton("💡 Tip", callback_data="noop")]]
 
             welcome_text = (
                 f"Hey <b>{first_name}</b> 👋\n\n"
@@ -1109,7 +1104,10 @@ async def chatop_handler(client, message: Message):
 
 @bot.on_callback_query(filters.regex(r"^noop$"))
 async def noop_callback_handler(client, callback_query: CallbackQuery):
-    await callback_query.answer()  # Instantly respond, does nothing
+    await callback_query.answer("📌 Search tips:\n"
+                                "E.g. Inception, Breaking Bad\n"
+                                "Friends S01E01, The Office S02E03",
+                                show_alert=True) 
 
 @bot.on_callback_query(filters.regex(r"^gen_invite:(-?\d+)$"))
 async def generate_and_send_invite(client, callback_query: CallbackQuery):

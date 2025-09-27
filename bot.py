@@ -899,6 +899,8 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
         )
         await callback_query.answer(
             "📌 Search tips:\n"
+            "• Search by Title or Title + SeasonEpisode\n"
+            "• Select proper cateogry (e.g. Movies, Shows)\n"
             "E.g. Inception, Breaking Bad\n"
             "Friends S01E01, The Office S02E03",
             show_alert=True
@@ -1105,6 +1107,8 @@ async def chatop_handler(client, message: Message):
 @bot.on_callback_query(filters.regex(r"^noop$"))
 async def noop_callback_handler(client, callback_query: CallbackQuery):
     await callback_query.answer("📌 Search tips:\n"
+                                "• Search by Title or Title + SeasonEpisode\n"
+                                "• Select proper cateogry (e.g. Movies, Shows)\n"
                                 "E.g. Inception, Breaking Bad\n"
                                 "Friends S01E01, The Office S02E03",
                                 show_alert=True) 

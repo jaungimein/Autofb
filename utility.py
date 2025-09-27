@@ -557,7 +557,8 @@ async def file_queue_worker(bot):
                                 title = ' '.join(title.split())
                                 year = parsed_data.get("year")
                                 season = parsed_data.get("season")
-                                if season:
+                                episode = parsed_data.get("episode")
+                                if season or episode:
                                     result = await get_tv_id(title, year)
                                 else:
                                     result = await get_movie_id(title, year)

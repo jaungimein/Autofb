@@ -788,6 +788,7 @@ async def tmdb_command(client, message):
                     caption=info,
                     parse_mode=enums.ParseMode.HTML,
                     has_spoiler=True,
+                    protect_content=True,
                     reply_markup=keyboard
                 )
             )

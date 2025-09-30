@@ -8,6 +8,9 @@ from bson import ObjectId
 import os
 import re
 import sys
+import aiohttp
+import aiofiles
+import uuid
 from datetime import datetime, timezone
 from collections import defaultdict
 
@@ -92,7 +95,7 @@ async def imgbb_auto_handler(client, message):
         user_id = message.from_user.id
 
         if user_id != OWNER_ID:
-            return False  # not handled → continue with quer
+            return False  # not handled → continue with query
 
         # If message contains a URL → ask for caption
         if re.search(r'https?://\S+|www\.\S+', text):
@@ -106,26 +109,52 @@ async def imgbb_auto_handler(client, message):
             image_url = pending_captions.pop(user_id)
             caption = re.sub(r'\.', ' ', text)
 
-            imgbb_client = imgbbpy.AsyncClient(IMGBB_API_KEY)
+            # --- Download image locally first ---
+            temp_filename = f"imgbb_{uuid.uuid4().hex}.jpg"
             try:
-                pic = await imgbb_client.upload(url=image_url, name=caption)
-                pic_doc = {
-                    "pic_url": pic.url,
-                    "caption": caption,
-                }
-                imgbb_col.insert_one(pic_doc)
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(image_url) as resp:
+                        if resp.status != 200:
+                            await message.reply_text(f"❌ Failed to download image from URL (status: {resp.status})")
+                            return True
+                        f = await aiofiles.open(temp_filename, mode='wb')
+                        await f.write(await resp.read())
+                        await f.close()
 
-                # Send to channel
-                await bot.send_photo(
+                # Send to channel from local file
+                sent_msg = await bot.send_photo(
                     UPDATE_CHANNEL_ID3,
-                    pic.url,
+                    photo=temp_filename,
                     caption=f"<b>{caption}</b>"
                 )
+
+                # Upload to imgbb as before
+                imgbb_client = imgbbpy.AsyncClient(IMGBB_API_KEY)
+                try:
+                    pic = await imgbb_client.upload(file=temp_filename, name=caption)
+                    pic_doc = {
+                        "pic_url": pic.url,
+                        "caption": caption,
+                    }
+                    imgbb_col.insert_one(pic_doc)
+                except Exception as e:
+                    await message.reply_text(f"❌ Failed to upload image to imgbb: {e}")
+                finally:
+                    await imgbb_client.close()
+
+                # Delete original command message
                 await safe_api_call(message.delete())
+
             except Exception as e:
-                await message.reply_text(f"❌ Failed to upload image to imgbb: {e}")
+                await message.reply_text(f"❌ Error downloading/sending image: {e}")
             finally:
-                await imgbb_client.close()
+                # Delete from local storage
+                try:
+                    if os.path.exists(temp_filename):
+                        os.remove(temp_filename)
+                except Exception:
+                    pass
+
             return True   # handled by imgbb
 
         return False  # not handled, continue with query logic

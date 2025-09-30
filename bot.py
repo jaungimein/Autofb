@@ -50,7 +50,7 @@ from query_helper import store_query, get_query_by_id, start_query_id_cleanup_th
 # ========================= 
 
 TOKEN_VALIDITY_SECONDS = 24 * 60 * 60  # 24 hours token validity
-MAX_FILES_PER_SESSION = 100             # Max files a user can access per session
+MAX_FILES_PER_SESSION = 10             # Max files a user can access per session
 PAGE_SIZE = 10  # Number of files per page
 SEARCH_PAGE_SIZE = 10  # You can adjust this
 

@@ -7,6 +7,7 @@ TgCrypto
 requests
 git+https://github.com/cinemagoer/cinemagoer
 aiohttp
+aiofiles
 parse-torrent-title
 mutagen
 imgbbpy

@@ -2,15 +2,11 @@
 # Imports
 # =========================
 import asyncio
-import imgbbpy
 import base64
 from bson import ObjectId
 import os
 import re
 import sys
-import aiohttp
-import aiofiles
-import uuid
 from datetime import datetime, timezone
 from collections import defaultdict
 
@@ -28,17 +24,14 @@ from utility import (
     queue_file_for_processing, file_queue_worker,
     file_queue, extract_tmdb_link, periodic_expiry_cleanup,
     restore_tmdb_photos, build_search_pipeline,
-    get_user_link, delete_after_delay,
-    restore_imgbb_photos, remove_unwanted,
-    restore_atmdb_photos
+    get_user_link, delete_after_delay, remove_unwanted,
     )
 from db import (db, users_col, 
                 tokens_col, 
                 files_col, 
                 allowed_channels_col, 
                 auth_users_col,
-                tmdb_col, imgbb_col,
-                atmdb_col
+                tmdb_col,
                 )
 
 from fast_api import api
@@ -69,7 +62,6 @@ bot = Client(
 # Track how many files each user has accessed in the current session
 user_file_count = defaultdict(int)
 copy_lock = asyncio.Lock()
-pending_captions = {}
 
 if "file_name_text" not in [idx["name"] for idx in files_col.list_indexes()]:
     files_col.create_index([("file_name", "text")])
@@ -88,80 +80,6 @@ def encode_file_link(channel_id, message_id):
     # Returns a base64 string for deep linking
     raw = f"{channel_id}_{message_id}".encode()
     return base64.urlsafe_b64encode(raw).decode().rstrip("=")
-
-async def imgbb_auto_handler(client, message):
-    try:
-        text = message.text.strip()
-        user_id = message.from_user.id
-
-        if user_id != OWNER_ID:
-            return False  # not handled → continue with query
-
-        # If message contains a URL → ask for caption
-        if re.search(r'https?://\S+|www\.\S+', text):
-            pending_captions[user_id] = text
-            reply = await message.reply_text("📝 Please reply with a caption for this image.")
-            bot.loop.create_task(auto_delete_message(message, reply))
-            return True   # handled by imgbb
-
-        # If user already sent a URL before → treat current msg as caption
-        if user_id in pending_captions:
-            image_url = pending_captions.pop(user_id)
-            caption = re.sub(r'\.', ' ', text)
-
-            # --- Download image locally first ---
-            temp_filename = f"imgbb_{uuid.uuid4().hex}.jpg"
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(image_url) as resp:
-                        if resp.status != 200:
-                            await message.reply_text(f"❌ Failed to download image from URL (status: {resp.status})")
-                            return True
-                        f = await aiofiles.open(temp_filename, mode='wb')
-                        await f.write(await resp.read())
-                        await f.close()
-
-                # Send to channel from local file
-                sent_msg = await bot.send_photo(
-                    UPDATE_CHANNEL_ID3,
-                    photo=temp_filename,
-                    caption=f"<b>{caption}</b>"
-                )
-
-                # Upload to imgbb as before
-                imgbb_client = imgbbpy.AsyncClient(IMGBB_API_KEY)
-                try:
-                    pic = await imgbb_client.upload(file=temp_filename, name=caption)
-                    pic_doc = {
-                        "pic_url": pic.url,
-                        "caption": caption,
-                    }
-                    imgbb_col.insert_one(pic_doc)
-                except Exception as e:
-                    await message.reply_text(f"❌ Failed to upload image to imgbb: {e}")
-                finally:
-                    await imgbb_client.close()
-
-                # Delete original command message
-                await safe_api_call(message.delete())
-
-            except Exception as e:
-                await message.reply_text(f"❌ Error downloading/sending image: {e}")
-            finally:
-                # Delete from local storage
-                try:
-                    if os.path.exists(temp_filename):
-                        os.remove(temp_filename)
-                except Exception:
-                    pass
-
-            return True   # handled by imgbb
-
-        return False  # not handled, continue with query logic
-
-    except Exception as e:
-        await message.reply_text(f"⚠️ An unexpected error occurred: {e}")
-        return True  # stop query flow if error
     
 # =========================
 # Bot Command Handlers
@@ -502,7 +420,7 @@ async def delete_command(client, message):
         args = message.text.split(maxsplit=3)
         reply = None
         if len(args) < 3:
-            reply = await message.reply_text("Usage: /del <file|tmdb|imgbb> <link> [end_link]")
+            reply = await message.reply_text("Usage: /del <file|tmdb <link> [end_link]")
             return
         delete_type = args[1].strip().lower()
         user_input = args[2].strip()
@@ -549,14 +467,8 @@ async def delete_command(client, message):
                     reply = await message.reply_text(f"No TMDB record found with ID {tmdb_type}/{tmdb_id} in the database.")
             except Exception as e:
                 reply = await message.reply_text(f"Error: {e}")
-        elif delete_type == "imgbb":
-            result = imgbb_col.delete_one({"pic_url": user_input})
-            if result.deleted_count > 0:
-                reply = await message.reply_text(f"Database record deleted : {user_input}")
-            else:
-                reply = await message.reply_text(f"No record found with: {user_input}")
         else:
-            reply = await message.reply_text("Invalid delete type. Use 'file' or 'tmdb' or 'imgbb'.")
+            reply = await message.reply_text("Invalid delete type. Use 'file' or 'tmdb'.")
         if reply:
             bot.loop.create_task(auto_delete_message(message, reply))
     except Exception as e:
@@ -589,10 +501,6 @@ async def update_info(client, message):
                 return
         if restore_type == "tmdb":
             await restore_tmdb_photos(bot, start_id)
-        elif restore_type == "imgbb":
-            await restore_imgbb_photos(bot, start_id)
-        elif restore_type == "atmdb":
-            await restore_atmdb_photos(bot, start_id)
         else:
             await message.reply_text("Invalid restore type. Use 'tmdb'.")
     except Exception as e:
@@ -829,16 +737,12 @@ async def tmdb_command(client, message):
 
 # Handles incoming text messages in private chat that aren't commands
 @bot.on_message(filters.private & filters.text & ~filters.command([
-    "start", "stats", "add", "rm", "broadcast", "log", "tmdb", "atmdb", 
-    "restore", "index", "del", "restart", "co", "block", "revoke"]))
+    "start", "stats", "add", "rm", "broadcast", "log", "tmdb", 
+    "restore", "index", "del", "restart", "op", "block", "revoke"]))
 async def instant_search_handler(client, message):
     reply = None
     user_id = message.from_user.id
     try:   
-        handled = await imgbb_auto_handler(client, message)
-        if handled:
-            return
-
         query = sanitize_query(message.text)
         query_id = store_query(query)
 

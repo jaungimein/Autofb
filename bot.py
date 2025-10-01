@@ -839,11 +839,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
             "Friends S01E01, The Office S02E03",
             show_alert=True
         )
-        logger.info(
-            f"Query: {query}\n"
-            f"Category: {channel_name}\n"
-            f"{user_id}"
-        )
+        logger.info(f"{query} | {channel_name} | {user_id}")
         return
 
     total_pages = (total_files + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE

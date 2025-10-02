@@ -788,10 +788,11 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
         )
         await callback_query.answer(
             "📌 Keywords Format\n"
-            "󠁯➤ Movie Title\n"
+            "󠁯➤ Movies\n"
             "💡 Inception, Batman, Avengers\n\n"
-            "󠁯➤ Series Title\n"
-            "💡 Friends, Loki S01E03, Dark S03E01\n\n",
+            "󠁯➤ Series\n"
+            "💡 Friends, The Office, Lost in Space\n"
+            "💡 Loki S01E03, Dark S03E01 (Optional)",
             show_alert=True
         )
         logger.info(f"{query} | {channel_name} | {user_id}")
@@ -993,10 +994,11 @@ async def chatop_handler(client, message: Message):
 async def noop_callback_handler(client, callback_query: CallbackQuery):
     await callback_query.answer(
         "📌 Keywords Format\n"
-        "󠁯➤ Movie Title\n"
+        "󠁯➤ Movies\n"
         "💡 Inception, Batman, Avengers\n\n"
-        "󠁯➤ Series Title\n"
-        "💡 Friends, Loki S01E03, Dark S03E01\n\n", 
+        "󠁯➤ Series\n"
+        "💡 Friends, The Office, Young Sheldon" 
+        "💡 Loki S01E03, Dark S03E01 (Optional)", 
         show_alert=True) 
 
 @bot.on_callback_query(filters.regex(r"^gen_invite:(-?\d+)$"))

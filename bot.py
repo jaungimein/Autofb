@@ -787,10 +787,10 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
                                                disable_web_page_preview=True
         )
         await callback_query.answer(
-            "📌 Keywords Format"
+            "📌 Keywords Format\n"
             "󠁯➤ Movie Title\n"
             "💡 Inception, Batman, Avengers\n\n"
-            "󠁯➤ Series Title (Season & Episode No. optional)\n"
+            "󠁯➤ Series Title\n"
             "💡 Friends, Loki S01E03, Dark S03E01\n\n",
             show_alert=True
         )
@@ -992,10 +992,10 @@ async def chatop_handler(client, message: Message):
 @bot.on_callback_query(filters.regex(r"^noop$"))
 async def noop_callback_handler(client, callback_query: CallbackQuery):
     await callback_query.answer(
-        "📌 Keywords Format"
+        "📌 Keywords Format\n"
         "󠁯➤ Movie Title\n"
         "💡 Inception, Batman, Avengers\n\n"
-        "󠁯➤ Series Title (Season & Episode No. optional)\n"
+        "󠁯➤ Series Title\n"
         "💡 Friends, Loki S01E03, Dark S03E01\n\n", 
         show_alert=True) 
 

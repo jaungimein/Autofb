@@ -690,55 +690,10 @@ async def tmdb_command(client, message):
         await safe_api_call(message.reply_text(f"Error in tmdb command: {e}"))
     await message.delete()
 
-@bot.on_message(filters.private & filters.command("ad") & filters.user(OWNER_ID))
-async def tmdb_command(client, message):
-    try:
-        if len(message.command) < 2:
-            reply = await safe_api_call(message.reply_text("Usage: /ad tmdb_link"))
-            await auto_delete_message(message, reply)
-            return
-
-        tmdb_link = message.command[1]
-        tmdb_type, tmdb_id = await extract_tmdb_link(tmdb_link)
-        result = await get_info(tmdb_type, tmdb_id)
-        poster_url = result.get('poster_url')
-        trailer = result.get('trailer_url')
-        info = result.get('message')
-
-        update = {
-            "$setOnInsert": {"tmdb_id": tmdb_id, "tmdb_type": tmdb_type}
-        }
-
-        atmdb_col.update_one(
-            {"tmdb_id": tmdb_id, "tmdb_type": tmdb_type},
-            update,
-            upsert=True
-        )
-
-        keyboard = InlineKeyboardMarkup(
-            [[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
-        if poster_url:
-            await safe_api_call(
-                client.send_photo(
-                    UPDATE_CHANNEL_ID3,
-                    photo=poster_url,
-                    caption=info,
-                    parse_mode=enums.ParseMode.HTML,
-                    has_spoiler=True,
-                    protect_content=True,
-                    reply_markup=keyboard
-                )
-            )
-    except Exception as e:
-        logging.exception("Error in tmdb_command")
-        await safe_api_call(message.reply_text(f"Error in tmdb command: {e}"))
-    await message.delete()
-
-
 # Handles incoming text messages in private chat that aren't commands
 @bot.on_message(filters.private & filters.text & ~filters.command([
     "start", "stats", "add", "rm", "broadcast", "log", "tmdb", 
-    "restore", "index", "del", "restart", "op", "block", "revoke"]))
+    "restore", "index", "del", "restart", "op", "block", "unblock", "revoke"]))
 async def instant_search_handler(client, message):
     reply = None
     user_id = message.from_user.id
@@ -754,7 +709,7 @@ async def instant_search_handler(client, message):
         if user_doc.get("blocked", True):
             return
                         
-        reply = await message.reply_text(text="Searching please wait ...",
+        reply = await message.reply_text(text="Please wait ...",
                                          quote=True,
                                          reply_to_message_id=message.id
                                          )
@@ -832,11 +787,11 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
                                                disable_web_page_preview=True
         )
         await callback_query.answer(
-            "📌 Search tips:\n"
-            "• Use Title of Movie/Show\n"
-            "• Select Cateogry (e.g. Movies, Shows)\n"
-            "E.g. Inception, Breaking Bad\n"
-            "Friends S01E01, The Office S02E03",
+            "📌 Keywords Format"
+            "󠁯➤ Movie Title\n"
+            "💡 Inception, Batman, Avengers\n\n"
+            "󠁯➤ Series Title (Season & Episode No. optional)\n"
+            "💡 Friends, Loki S01E03, Dark S03E01\n\n",
             show_alert=True
         )
         logger.info(f"{query} | {channel_name} | {user_id}")
@@ -1036,12 +991,13 @@ async def chatop_handler(client, message: Message):
 
 @bot.on_callback_query(filters.regex(r"^noop$"))
 async def noop_callback_handler(client, callback_query: CallbackQuery):
-    await callback_query.answer("📌 Search tips:\n"
-                                "• Use Title of Movie/Show\n"
-                                "• Select Cateogry (e.g. Movies, Shows)\n"
-                                "E.g. Inception, Breaking Bad\n"
-                                "Friends S01E01, The Office S02E03",
-                                show_alert=True) 
+    await callback_query.answer(
+        "📌 Keywords Format"
+        "󠁯➤ Movie Title\n"
+        "💡 Inception, Batman, Avengers\n\n"
+        "󠁯➤ Series Title (Season & Episode No. optional)\n"
+        "💡 Friends, Loki S01E03, Dark S03E01\n\n", 
+        show_alert=True) 
 
 @bot.on_callback_query(filters.regex(r"^gen_invite:(-?\d+)$"))
 async def generate_and_send_invite(client, callback_query: CallbackQuery):
@@ -1128,6 +1084,27 @@ async def block_user_handler(client, message: Message):
     except Exception as e:
         await message.reply_text(f"❌ Failed to block user: {e}")
 
+@bot.on_message(filters.command("unblock") & filters.private & filters.user(OWNER_ID))
+async def block_user_handler(client, message: Message):
+    """
+    Handles the /unblock command for the owner.
+    Usage: /unblock <user_id>
+    """
+    args = message.text.split()
+    if len(args) != 2:
+        await message.reply_text("Usage: /unblock <user_id>")
+        return
+    try:
+        user_id = int(args[1])
+        users_col.update_one(
+            {"user_id": user_id},
+            {"$set": {"blocked": False}},
+            upsert=True
+        )
+        reply = await message.reply_text(f"✅ User {user_id} has been unblocked.")
+        auto_delete_message(message, reply)
+    except Exception as e:
+        await message.reply_text(f"❌ Failed to unblock user: {e}")
 
 
 @bot.on_chat_join_request()

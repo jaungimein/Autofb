@@ -772,7 +772,7 @@ async def channel_search_callback_handler(client, callback_query: CallbackQuery)
         google_search_url = f"https://www.google.com/search?q={query.replace(' ', '+')}"
         text = (f"🚫 Not Available in {channel_name}\n\n"
                 f"Spelling check 👉 <b><a href=\"{google_search_url}\">Google</a></b>\n\n"
-                f"What's Available 🤔❓👇"
+                f"👇 What's Available ❓🤔"
                 )
         
         buttons = [

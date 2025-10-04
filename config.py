@@ -61,7 +61,6 @@ OWNER_ID = int(os.getenv('OWNER_ID'))
 BOT_USERNAME = os.getenv('BOT_USERNAME')
 UPDATE_CHANNEL_ID = int(os.getenv('UPDATE_CHANNEL_ID', 0))
 UPDATE_CHANNEL_ID2 = int(os.getenv('UPDATE_CHANNEL_ID2', 0))
-UPDATE_CHANNEL_ID3 = int(os.getenv('UPDATE_CHANNEL_ID3', 0))
 GROUP_ID = int(os.getenv('GROUP_ID', 0))
 UNLOCK_ID = int(os.getenv('UNLOCK_ID'))
 

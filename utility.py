@@ -15,7 +15,7 @@ from db import (
     tokens_col,
     auth_users_col,
     files_col,
-    tmdb_col
+    tmdb_col, atmdb_col
 )
 from config import *
 from tmdb import get_movie_id, get_tv_id, get_info
@@ -342,7 +342,42 @@ async def restore_tmdb_photos(bot, start_id=None):
         except Exception as e:
             logger.error(f"Error in restore_tmdb_photos for tmdb_id={tmdb_id}: {e}")
             continue  # Continue to the next doc
-        
+
+async def restore_atmdb_photos(bot, start_id=None):
+    """
+    Restore all TMDB poster photos from the database.
+    For each tmdb entry, fetch details and send the poster to UPDATE_CHANNEL_ID.
+    """
+    query = {}
+    if start_id:
+        query['_id'] = {'$gt': start_id}
+    cursor = atmdb_col.find(query).sort('_id', 1)
+    docs = list(cursor)
+    for doc in docs:
+        tmdb_id = doc.get("tmdb_id")
+        tmdb_type = doc.get("tmdb_type")
+        try:
+            results = await get_info(tmdb_type, tmdb_id)
+            poster_url = results.get('poster_url')
+            trailer = results.get('trailer_url')
+            info = results.get('message')
+            keyboard = InlineKeyboardMarkup(
+                [[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
+            if poster_url:
+                await safe_api_call(
+                    bot.send_photo(
+                        UPDATE_CHANNEL_ID3,
+                        photo=poster_url,
+                        caption=info,
+                        parse_mode=enums.ParseMode.HTML,
+                        has_spoiler=True,
+                        reply_markup=keyboard
+                    )
+                )
+        except Exception as e:
+            logger.error(f"Error in restore_tmdb_photos for tmdb_id={tmdb_id}: {e}")
+            continue  # Continue to the next doc
+
 
 def extract_file_info(message, channel_id=None):
     """Extract file info from a Pyrogram message."""

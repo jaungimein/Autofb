@@ -23,7 +23,7 @@ from utility import (
     auto_delete_message, human_readable_size,
     queue_file_for_processing, file_queue_worker,
     file_queue, extract_tmdb_link, periodic_expiry_cleanup,
-    restore_tmdb_photos, build_search_pipeline,
+    restore_tmdb_photos, restore_atmdb_photos, build_search_pipeline,
     get_user_link, delete_after_delay, remove_unwanted,
     )
 from db import (db, users_col, 
@@ -31,7 +31,7 @@ from db import (db, users_col,
                 files_col, 
                 allowed_channels_col, 
                 auth_users_col,
-                tmdb_col,
+                tmdb_col, atmdb_col
                 )
 
 from fast_api import api
@@ -501,6 +501,8 @@ async def update_info(client, message):
                 return
         if restore_type == "tmdb":
             await restore_tmdb_photos(bot, start_id)
+        elif restore_type == "atmdb":
+            await restore_atmdb_photos(bot, start_id)
         else:
             await message.reply_text("Invalid restore type. Use 'tmdb'.")
     except Exception as e:
@@ -649,6 +651,48 @@ async def stats_command(client, message: Message):
     except Exception as e:
         await message.reply_text(f"⚠️ An error occurred while fetching stats:\n<code>{e}</code>")
 
+@bot.on_message(filters.private & filters.command("ad") & filters.user(OWNER_ID))
+async def tmdb_command(client, message):
+    try:
+        if len(message.command) < 2:
+            reply = await safe_api_call(message.reply_text("Usage: /tmdb tmdb_link"))
+            await auto_delete_message(message, reply)
+            return
+
+        tmdb_link = message.command[1]
+        tmdb_type, tmdb_id = await extract_tmdb_link(tmdb_link)
+        result = await get_info(tmdb_type, tmdb_id)
+        poster_url = result.get('poster_url')
+        trailer = result.get('trailer_url')
+        info = result.get('message')
+
+        update = {
+            "$setOnInsert": {"tmdb_id": tmdb_id, "tmdb_type": tmdb_type}
+        }
+        atmdb_col.update_one(
+            {"tmdb_id": tmdb_id, "tmdb_type": tmdb_type},
+            update,
+            upsert=True
+        )
+
+        keyboard = InlineKeyboardMarkup(
+            [[InlineKeyboardButton("🎥 Trailer", url=trailer)]]) if trailer else None
+        if poster_url:
+            await safe_api_call(
+                client.send_photo(
+                    UPDATE_CHANNEL_ID3,
+                    photo=poster_url,
+                    caption=info,
+                    parse_mode=enums.ParseMode.HTML,
+                    has_spoiler=True,
+                    reply_markup=keyboard
+                )
+            )
+    except Exception as e:
+        logging.exception("Error in tmdb_command")
+        await safe_api_call(message.reply_text(f"Error in tmdb command: {e}"))
+    await message.delete()
+
 @bot.on_message(filters.private & filters.command("tmdb") & filters.user(OWNER_ID))
 async def tmdb_command(client, message):
     try:
@@ -689,6 +733,7 @@ async def tmdb_command(client, message):
         logging.exception("Error in tmdb_command")
         await safe_api_call(message.reply_text(f"Error in tmdb command: {e}"))
     await message.delete()
+
 
 # Handles incoming text messages in private chat that aren't commands
 @bot.on_message(filters.private & filters.text & ~filters.command([

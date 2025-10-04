@@ -7,6 +7,7 @@ mongo = MongoClient(MONGO_URI)
 db = mongo["sharing_bot"]
 files_col = db["files"]
 tmdb_col = db["tmdb"]
+atmdb_col = db["atmdb"]
 tokens_col = db["tokens"]
 auth_users_col = db["auth_users"]
 allowed_channels_col = db["allowed_channels"]

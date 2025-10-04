@@ -466,6 +466,27 @@ async def delete_command(client, message):
                 else:
                     reply = await message.reply_text(f"No TMDB record found with ID {tmdb_type}/{tmdb_id} in the database.")
             except Exception as e:
+                reply = await message.reply_text(f"Error: {e}") 
+        elif delete_type == "atmdb":
+            try:
+                # Case: /del atmdb movie 12345
+                if end_input:
+                    tmdb_type = user_input.lower()
+                    tmdb_id = int(end_input.strip())
+                else:
+                    # Case: /del atmdb <tmdb_link>
+                    tmdb_type, tmdb_id = await extract_tmdb_link(user_input)
+
+                result = atmdb_col.delete_one({
+                    "tmdb_type": tmdb_type,
+                    "tmdb_id": tmdb_id
+                })
+
+                if result.deleted_count > 0:
+                    reply = await message.reply_text(f"Database record deleted: {tmdb_type}/{tmdb_id}.")
+                else:
+                    reply = await message.reply_text(f"No ATMDB record found with ID {tmdb_type}/{tmdb_id} in the database.")
+            except Exception as e:
                 reply = await message.reply_text(f"Error: {e}")
         else:
             reply = await message.reply_text("Invalid delete type. Use 'file' or 'tmdb'.")

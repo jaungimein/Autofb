@@ -52,7 +52,8 @@ def format_tmdb_info(tmdb_type, movie_id, data):
             rating_str = f"{rating}"
         else:
             rating_str = None
-        plot = data.get('overview') if data.get('adult') else imdb_info.get('plot')
+
+        plot = truncate_overview(imdb_info.get('plot') or data.get('overview'))
 
         message = f"<b>🎬 Title:</b> {title}\n"
         message += f"<b>📆 Release Date:</b> {release_date}\n" if release_date else ""
@@ -84,7 +85,8 @@ def format_tmdb_info(tmdb_type, movie_id, data):
             rating_str = f"{rating}"
         else:
             rating_str = None
-        plot = data.get('overview') if data.get('adult') else imdb_info.get('plot')
+
+        plot = truncate_overview(imdb_info.get('plot') or data.get('overview'))
         
         message = f"<b>📺 Title:</b> {title}\n"
         message += f"<b>📅 Release Date:</b> {release_date}\n" if release_date else ""

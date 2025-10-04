@@ -705,7 +705,6 @@ async def tmdb_command(client, message):
                     photo=poster_url,
                     caption=info,
                     parse_mode=enums.ParseMode.HTML,
-                    has_spoiler=True,
                     reply_markup=keyboard
                 )
             )
@@ -758,7 +757,7 @@ async def tmdb_command(client, message):
 
 # Handles incoming text messages in private chat that aren't commands
 @bot.on_message(filters.private & filters.text & ~filters.command([
-    "start", "stats", "add", "rm", "broadcast", "log", "tmdb", 
+    "start", "stats", "add", "rm", "broadcast", "log", "tmdb", "ad", 
     "restore", "index", "del", "restart", "op", "block", "unblock", "revoke"]))
 async def instant_search_handler(client, message):
     reply = None
